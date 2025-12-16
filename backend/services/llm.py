@@ -1,87 +1,81 @@
-import os
-import tempfile
-from fastapi import UploadFile
 import google.generativeai as genai
 from config import settings
 
-# Initialize Gemini
+# 初始化 Gemini
 if settings.GEMINI_API_KEY:
     genai.configure(api_key=settings.GEMINI_API_KEY)
 
-def transcribe_audio(file: UploadFile) -> str:
-    """Extract text from an audio file using Gemini."""
+
+def transcribe_audio_from_path(audio_path: str) -> str:
+    """
+    從文件路徑轉錄音頻（使用 Gemini）
+
+    Args:
+        audio_path: 音頻文件的絕對路徑
+
+    Returns:
+        轉錄的文字
+    """
     try:
         if not settings.GEMINI_API_KEY:
-            print("Error: Gemini API Key not found for audio transcription.")
+            print("[GEMINI API] Error: API Key not found for audio transcription.")
             return ""
 
-        # Save to temp file because genai.upload_file requires a path
-        suffix = os.path.splitext(file.filename)[1]
-        with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-            tmp.write(file.file.read())
-            tmp_path = tmp.name
+        # Upload to Gemini
+        audio_file = genai.upload_file(path=audio_path)
 
-        try:
-            # Upload to Gemini
-            audio_file = genai.upload_file(path=tmp_path)
-
-            # Generate transcript
-            model = genai.GenerativeModel(settings.GEMINI_MODEL_NAME)
-            response = model.generate_content(
-                ["Please generate a transcript of this audio file. Do not add any other text, just the transcript.", audio_file]
-            )
-            return response.text
-        finally:
-            # Clean up temp file
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+        # Generate transcript
+        model = genai.GenerativeModel(settings.GEMINI_MODEL_NAME)
+        response = model.generate_content([
+            "請生成這份音頻文件的轉錄。請直接輸出文字，不要添加任何解釋或說明。",
+            audio_file
+        ])
+        return response.text
 
     except Exception as e:
-        print(f"Error processing audio: {e}")
+        print(f"[GEMINI API] Error transcribing audio: {e}")
         return ""
 
-def extract_pdf_with_gemini(file_bytes: bytes, filename: str) -> str:
+
+def extract_pdf_from_path(pdf_path: str, filename: str = "") -> str:
     """
-    Extract text from PDF using Gemini's vision capabilities.
-    Works for both electronic PDFs and scanned PDFs.
-    Cost: ~$0.0002 per page
+    從文件路徑提取 PDF 文字（使用 Gemini Vision）
+
+    適用於電子 PDF 和掃描 PDF
+    成本：每頁約 $0.0002
+
+    Args:
+        pdf_path: PDF 文件的絕對路徑
+        filename: 文件名（用於日誌）
+
+    Returns:
+        提取的文字
     """
     try:
         if not settings.GEMINI_API_KEY:
             print("[GEMINI API] Error: API Key not found for PDF extraction.")
             return ""
 
-        print(f"[GEMINI API] Processing PDF with vision: {filename}")
+        print(f"[GEMINI API] Processing PDF with vision: {filename or pdf_path}")
 
-        # Save to temp file
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
-            tmp.write(file_bytes)
-            tmp_path = tmp.name
+        # Upload PDF to Gemini
+        pdf_file = genai.upload_file(path=pdf_path)
 
-        try:
-            # Upload PDF to Gemini
-            pdf_file = genai.upload_file(path=tmp_path)
+        # Extract text using vision model
+        model = genai.GenerativeModel(settings.GEMINI_MODEL_NAME)
+        response = model.generate_content([
+            "請仔細閱讀這份 PDF 文件的所有內容，並提取完整的文字。"
+            "包含標題、段落、列表、表格等所有文字內容。"
+            "請直接輸出文字，不要添加任何解釋或說明。",
+            pdf_file
+        ])
 
-            # Extract text using vision model
-            model = genai.GenerativeModel(settings.GEMINI_MODEL_NAME)
-            response = model.generate_content([
-                "請仔細閱讀這份 PDF 文件的所有內容，並提取完整的文字。"
-                "包含標題、段落、列表、表格等所有文字內容。"
-                "請直接輸出文字，不要添加任何解釋或說明。",
-                pdf_file
-            ])
-
-            extracted_text = response.text
-            print(f"[GEMINI API] Success: Extracted {len(extracted_text)} characters from {filename}")
-            return extracted_text
-
-        finally:
-            # Clean up temp file
-            if os.path.exists(tmp_path):
-                os.remove(tmp_path)
+        extracted_text = response.text
+        print(f"[GEMINI API] Success: Extracted {len(extracted_text)} characters")
+        return extracted_text
 
     except Exception as e:
-        print(f"[GEMINI API] Failed to extract PDF {filename}: {e}")
+        print(f"[GEMINI API] Failed to extract PDF: {e}")
         return ""
 
 def summarize_content(text: str) -> str:
