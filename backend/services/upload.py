@@ -35,45 +35,30 @@ async def process_file(file: UploadFile) -> Dict[str, Any]:
         return result
 
     # 根據類型調用 service 提取文字
+    tmp_path = None
     try:
-        extracted_text = ""
-        method = ""
+        # 保存到臨時文件
+        tmp_path = parser.save_upload_to_temp(file)
 
-        if lower_name.endswith(".pdf"):
-            # 使用 Gemini Vision 提取 PDF（支援電子 PDF 和掃描 PDF）
-            tmp_path = parser.save_upload_to_temp(file)
-            try:
-                extracted_text = llm.extract_pdf_from_path(tmp_path, filename)
-                method = "gemini-vision"
-            finally:
-                parser.cleanup_temp_file(tmp_path)
-
-        elif lower_name.endswith((".ppt", ".pptx")):
-            content_bytes = await file.read()
-            extracted_text = parser.extract_text_from_ppt(content_bytes)
-            method = "python-pptx"
-
+        # 根據類型調用 Gemini 提取
+        if lower_name.endswith((".pdf", ".ppt", ".pptx")):
+            extracted_text = llm.extract_document_from_path(tmp_path, filename)
         else:  # audio
-            # 保存到臨時文件（parser 會處理文件讀取）
-            tmp_path = parser.save_upload_to_temp(file)
-            try:
-                extracted_text = llm.transcribe_audio_from_path(tmp_path)
-                method = "gemini"
-            finally:
-                parser.cleanup_temp_file(tmp_path)
+            extracted_text = llm.transcribe_audio_from_path(tmp_path)
 
         # 設置結果
-        if extracted_text:
-            result["extracted_text"] = extracted_text
-            result["char_count"] = len(extracted_text)
-            result["method"] = method
-        else:
-            result["status"] = "failed"
-            result["message"] = "無法提取文字內容"
+        result["extracted_text"] = extracted_text
+        result["char_count"] = len(extracted_text)
+        result["method"] = "gemini"
 
     except Exception as e:
         result["status"] = "failed"
         result["message"] = str(e)
         print(f"[ERROR] Processing {filename}: {e}")
+
+    finally:
+        # 統一清理臨時文件
+        if tmp_path:
+            parser.cleanup_temp_file(tmp_path)
 
     return result

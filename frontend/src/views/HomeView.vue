@@ -99,10 +99,6 @@ const buttonText = computed(() => {
 </template>
 
 <style scoped>
-.home-view {
-  /* This container already inherits from main-container in App.vue */
-}
-
 .hero {
   margin-bottom: 48px;
   text-align: center;
