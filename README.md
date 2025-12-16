@@ -1,6 +1,6 @@
 # AI Note Summary (AI 筆記摘要助手)
 
-一個基於 Google Gemini 1.5 Flash 模型的智慧筆記摘要工具。
+一個基於 Google Gemini 2.5 Flash 模型的智慧筆記摘要工具。
 能夠自動解析 PDF 與 PowerPoint 投影片，生成結構化 Markdown 摘要，並自動同步到 Notion 資料庫。
 
 ## 核心功能
@@ -18,13 +18,18 @@
 ├── backend/                  # Python FastAPI 後端
 │   ├── main.py               # API 入口
 │   ├── config.py             # 設定檔管理
+│   ├── managers/             # 業務邏輯層
+│   │   └── upload_manager.py # 上傳處理
 │   └── services/             # 核心服務層
 │       ├── llm.py            # Gemini AI 整合
 │       ├── parser.py         # 檔案解析邏輯 (PDF/PPT)
-│       └── notion.py         # Notion API 整合
+│       ├── notion.py         # Notion API 整合
+│       └── upload.py         # 檔案上傳服務
 ├── frontend/                 # Vue 3 + Vite 前端
 │   ├── src/                  # Vue 組件源碼
 │   │   ├── components/       # UI 組件 (FileUploader, FileList, SummaryResult)
+│   │   ├── router/           # 路由配置
+│   │   ├── views/            # 頁面組件
 │   │   ├── App.vue           # 主應用組件
 │   │   └── main.js           # 應用入口
 │   └── vite.config.js        # Vite 配置 (開發代理設定)
@@ -33,11 +38,12 @@
 
 ## 快速開始
 
-### 1. 環境準備 (Windows)
+### 1. 環境準備
 
 #### Python 後端
 本專案使用 Python 3.10 的標準 `venv` 建立虛擬環境。
 
+**Windows:**
 1. **建立虛擬環境**:
    ```powershell
    py -3.10 -m venv .venv
@@ -48,12 +54,22 @@
    .venv\Scripts\Activate.ps1
    ```
 
-3. **安裝依賴**:
-   ```powershell
-   # 重要：請務必進入 backend 資料夾再執行
-   cd backend
-   pip install -r requirements.txt
+**macOS / Linux:**
+1. **建立虛擬環境**:
+   ```bash
+   python3 -m venv .venv
    ```
+
+2. **啟用環境**:
+   ```bash
+   source .venv/bin/activate
+   ```
+
+**安裝依賴 (共通):**
+```bash  
+cd backend
+pip install -r requirements.txt
+```
 
 #### Vue 前端
 確保已安裝 Node.js (推薦 v18+)。
@@ -69,6 +85,7 @@ npm install
 
 ```ini
 GEMINI_API_KEY=AIza...              # Google Gemini API Key
+GEMINI_MODEL_NAME=gemini-2.5-flash  # (Optional) 模型版本
 NOTION_API_KEY=secret_...           # Notion Integration Token
 NOTION_DATABASE_ID=...              # 目標 Notion Database ID
 ```
@@ -89,11 +106,25 @@ NOTION_DATABASE_ID=...              # 目標 Notion Database ID
 #### 方式 B: 分別手動啟動 (最靈活)
 
 **Terminal 1: 後端**
+
+**Windows:**
 ```powershell
 # 1. 啟用環境
 .venv\Scripts\Activate.ps1
 
-# 2. 進入後端目錄 (關鍵步驟)
+# 2. 進入後端目錄
+cd backend
+
+# 3. 啟動伺服器
+uvicorn main:app --reload
+```
+
+**macOS / Linux:**
+```bash
+# 1. 啟用環境
+source .venv/bin/activate
+
+# 2. 進入後端目錄
 cd backend
 
 # 3. 啟動伺服器
@@ -108,25 +139,12 @@ npm run dev
 ```
 前端 UI: [http://localhost:5173](http://localhost:5173)
 
-#### 方式 C: 生產模式預覽
-將前端編譯為靜態檔案，由後端統一服務：
 
-```powershell
-# 1. 編譯前端
-cd frontend
-npm run build
-cd ..
-
-# 2. 啟動後端
-cd backend
-uvicorn main:app
-```
-單一入口: [http://127.0.0.1:8000](http://127.0.0.1:8000)
 
 ## 開發者筆記
 
 ### 後端開發
-- 若要更換 AI 模型，請修改 `backend/services/llm.py` 中的 `GenerativeModel` 參數。
+- 若要更換 AI 模型，請修改 `.env` 中的 `GEMINI_MODEL_NAME` (預設為 `gemini-2.5-flash`)。
 - API 端點位於 `backend/main.py`，使用 FastAPI 自動生成的文檔：`/docs`
 
 ### 前端開發
@@ -136,4 +154,4 @@ uvicorn main:app
 
 ### 架構說明
 - **開發環境**: 前端 Vite dev server (5173) + 後端 FastAPI (8000)，透過 Vite proxy 避免 CORS
-- **生產環境**: 前端建置為靜態檔案，由 FastAPI `StaticFiles` 掛載，單一服務統一對外
+- **生產環境**: 建議使用 Nginx 或 Docker 容器化部署，前後端獨立服務以實現最佳效能與解耦。

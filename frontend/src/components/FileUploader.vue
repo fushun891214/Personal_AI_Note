@@ -1,23 +1,31 @@
 <script setup>
 import { ref } from 'vue'
 
+const props = defineProps({
+  disabled: {
+    type: Boolean,
+    default: false
+  }
+})
+
 const emit = defineEmits(['files-selected'])
 const fileInput = ref(null)
 
 const triggerInput = () => {
+  if (props.disabled) return
   fileInput.value.click()
 }
 
 const handleFileChange = (event) => {
   if (event.target.files.length > 0) {
     emit('files-selected', Array.from(event.target.files))
-    // Reset input so same files can be selected again if needed (though accumulation is handled by parent)
     event.target.value = ''
   }
 }
 
 const handleDrop = (event) => {
   event.preventDefault()
+  if (props.disabled) return
   if (event.dataTransfer.files.length > 0) {
     emit('files-selected', Array.from(event.dataTransfer.files))
   }
@@ -27,6 +35,7 @@ const handleDrop = (event) => {
 <template>
   <div 
     class="upload-box" 
+    :class="{ 'is-disabled': disabled }"
     @click="triggerInput" 
     @dragover.prevent 
     @drop="handleDrop"
@@ -38,6 +47,7 @@ const handleDrop = (event) => {
       multiple 
       hidden
       @change="handleFileChange"
+      :disabled="disabled"
     >
     <div class="icon">📁</div>
     <p>拖放檔案或點擊上傳</p>
@@ -59,9 +69,16 @@ const handleDrop = (event) => {
     user-select: none;
 }
 
-.upload-box:hover {
+.upload-box:hover:not(.is-disabled) {
     border-color: #4f46e5;
     background: #f5f3ff;
+}
+
+.upload-box.is-disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    background: #f3f4f6;
+    border-color: #e5e7eb;
 }
 
 .upload-box p {

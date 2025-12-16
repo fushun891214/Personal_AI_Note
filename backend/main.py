@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
+
 from typing import List
 from managers import upload_manager
 
@@ -19,5 +19,3 @@ async def upload_document(files: List[UploadFile] = File(...)):
         return JSONResponse(status_code=400, content=result)
 
     return result
-
-app.mount("/", StaticFiles(directory="../frontend/dist", html=True), name="static")

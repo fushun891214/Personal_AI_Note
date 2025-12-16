@@ -6,7 +6,7 @@ if settings.GEMINI_API_KEY:
     genai.configure(api_key=settings.GEMINI_API_KEY)
 
 
-def transcribe_audio_from_path(audio_path: str) -> str:
+async def transcribe_audio_from_path(audio_path: str) -> str:
     """
     從文件路徑轉錄音頻（使用 Gemini）
 
@@ -26,7 +26,7 @@ def transcribe_audio_from_path(audio_path: str) -> str:
 
         # Generate transcript
         model = genai.GenerativeModel(settings.GEMINI_MODEL_NAME)
-        response = model.generate_content([
+        response = await model.generate_content_async([
             "請生成這份音頻文件的轉錄。請直接輸出文字，不要添加任何解釋或說明。",
             audio_file
         ])
@@ -37,7 +37,7 @@ def transcribe_audio_from_path(audio_path: str) -> str:
         return ""
 
 
-def extract_document_from_path(file_path: str, filename: str = "") -> str:
+async def extract_document_from_path(file_path: str, filename: str = "") -> str:
     """
     從文件路徑提取文件內容（使用 Gemini）
 
@@ -63,7 +63,7 @@ def extract_document_from_path(file_path: str, filename: str = "") -> str:
 
         # Extract text using Gemini
         model = genai.GenerativeModel(settings.GEMINI_MODEL_NAME)
-        response = model.generate_content([
+        response = await model.generate_content_async([
             "請仔細閱讀這份文件的所有內容，並提取完整的文字。"
             "包含標題、段落、列表、表格等所有文字內容。"
             "請直接輸出文字，不要添加任何解釋或說明。",
@@ -78,7 +78,8 @@ def extract_document_from_path(file_path: str, filename: str = "") -> str:
         print(f"[GEMINI API] Failed to extract document: {e}")
         return ""
 
-def summarize_content(text: str) -> dict:
+
+async def summarize_content(text: str) -> dict:
     """
     使用 Gemini 生成標題和摘要
 
@@ -119,7 +120,7 @@ def summarize_content(text: str) -> dict:
 
     try:
         model = genai.GenerativeModel(settings.GEMINI_MODEL_NAME)
-        response = model.generate_content(prompt)
+        response = await model.generate_content_async(prompt)
 
         # 解析 JSON 響應
         import json

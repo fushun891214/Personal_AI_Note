@@ -18,6 +18,7 @@ const handleFilesSelected = (newFiles) => {
 }
 
 const handleRemoveFile = (index) => {
+  if (isProcessing.value) return
   files.value.splice(index, 1)
 }
 
@@ -70,9 +71,9 @@ const buttonText = computed(() => {
     </div>
 
     <form @submit.prevent="handleSubmit">
-      <FileUploader @files-selected="handleFilesSelected" />
+      <FileUploader :disabled="isProcessing" @files-selected="handleFilesSelected" />
 
-      <FileList :files="files" @remove-file="handleRemoveFile" />
+      <FileList :files="files" :disabled="isProcessing" @remove-file="handleRemoveFile" />
 
       <div class="button-group">
         <button

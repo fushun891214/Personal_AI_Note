@@ -42,9 +42,9 @@ async def process_file(file: UploadFile) -> Dict[str, Any]:
 
         # 根據類型調用 Gemini 提取
         if lower_name.endswith((".pdf", ".ppt", ".pptx")):
-            extracted_text = llm.extract_document_from_path(tmp_path, filename)
+            extracted_text = await llm.extract_document_from_path(tmp_path, filename)
         else:  # audio
-            extracted_text = llm.transcribe_audio_from_path(tmp_path)
+            extracted_text = await llm.transcribe_audio_from_path(tmp_path)
 
         # 設置結果
         result["extracted_text"] = extracted_text

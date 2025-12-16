@@ -42,7 +42,7 @@ class UploadManager:
                 raise ValueError("所有文件提取失敗，無法生成摘要")
 
             # 3. 生成標題和摘要（調用 llm service）
-            result = llm.summarize_content(combined_text)
+            result = await llm.summarize_content(combined_text)
             title = result["title"]
             summary = result["summary"]
 
