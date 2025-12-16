@@ -1,64 +1,34 @@
-from typing import Dict, Any
+from typing import List
 from fastapi import UploadFile
-from . import parser, llm
+from . import parser
 
-async def process_file(file: UploadFile) -> Dict[str, Any]:
+# 支援的文件格式
+SUPPORTED_EXTENSIONS = (".pdf", ".ppt", ".pptx", ".mp3", ".wav", ".m4a", ".ogg")
+
+
+async def save_files_to_temp(files: List[UploadFile]) -> List[str]:
     """
-    處理單個文件的文字提取
+    保存上傳的文件到臨時目錄（fail-fast 模式）
 
-    流程：檢查格式 → 調用對應 service → 返回結果
+    流程：
+    1. 先驗證所有文件格式
+    2. 格式都有效才開始保存
+    3. 任何失敗都直接拋出異常
+
+    Args:
+        files: 上傳的文件列表
 
     Returns:
-        包含 filename, status, message, method, char_count, extracted_text 的字典
+        臨時文件路徑列表
+
+    Raises:
+        ValueError: 不支援的檔案格式
+        IOError: 檔案保存失敗
     """
-    filename = file.filename
-    lower_name = filename.lower()
+    # 1. 先驗證所有文件格式
+    for file in files:
+        if not file.filename.lower().endswith(SUPPORTED_EXTENSIONS):
+            raise ValueError(f"不支援的檔案格式: {file.filename}")
 
-    result = {
-        "filename": filename,
-        "status": "success",
-        "message": "",
-        "method": "",
-        "char_count": 0,
-        "extracted_text": ""
-    }
-
-    # 檢查格式是否支援
-    is_supported = (lower_name.endswith(".pdf") or
-                   lower_name.endswith((".ppt", ".pptx")) or
-                   lower_name.endswith((".mp3", ".wav", ".m4a", ".ogg")))
-
-    if not is_supported:
-        result["status"] = "skipped"
-        result["message"] = "不支援的檔案格式"
-        print(f"[SKIP] Unsupported file: {filename}")
-        return result
-
-    # 根據類型調用 service 提取文字
-    tmp_path = None
-    try:
-        # 保存到臨時文件
-        tmp_path = parser.save_upload_to_temp(file)
-
-        # 根據類型調用 Gemini 提取
-        if lower_name.endswith((".pdf", ".ppt", ".pptx")):
-            extracted_text = await llm.extract_document_from_path(tmp_path, filename)
-        else:  # audio
-            extracted_text = await llm.transcribe_audio_from_path(tmp_path)
-
-        # 設置結果
-        result["extracted_text"] = extracted_text
-        result["char_count"] = len(extracted_text)
-        result["method"] = "gemini"
-
-    except Exception as e:
-        result["status"] = "failed"
-        result["message"] = str(e)
-        print(f"[ERROR] Processing {filename}: {e}")
-
-    finally:
-        # 統一清理臨時文件
-        if tmp_path:
-            parser.cleanup_temp_file(tmp_path)
-
-    return result
+    # 2. 格式都有效，開始保存
+    return [parser.save_upload_to_temp(file) for file in files]

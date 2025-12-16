@@ -67,7 +67,7 @@ const buttonText = computed(() => {
 <template>
   <div class="home-view">
     <div class="hero">
-      <h1>讓 AI 幫你自動化生成會議摘要</h1>
+      <h1>讓 AI 幫你自動化生成筆記摘要</h1>
     </div>
 
     <form @submit.prevent="handleSubmit">

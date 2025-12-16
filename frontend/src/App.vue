@@ -7,7 +7,7 @@
   <div class="app-container">
     <header class="app-header">
       <div class="header-content">
-        <div class="brand">會議記錄摘要小幫手</div>
+        <div class="brand">筆記摘要小幫手</div>
       </div>
     </header>
 
