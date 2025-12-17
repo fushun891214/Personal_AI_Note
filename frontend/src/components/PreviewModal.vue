@@ -208,6 +208,8 @@ const handleClose = () => {
   gap: 16px;
   height: 60vh;
   min-height: 400px;
+  max-height: 60vh;
+  overflow: hidden;
 }
 
 .pdf-panel {
@@ -235,10 +237,16 @@ const handleClose = () => {
   border: 1px solid #e5e7eb;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   line-height: 1.6;
+  max-height: 100%;
 }
 
 .feedback-section {
   margin-top: 16px;
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 8px;
+  position: relative;
+  z-index: 10;
 }
 
 .api-notice {
