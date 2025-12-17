@@ -8,18 +8,19 @@ const props = defineProps({
   }
 })
 
+const isSuccess = computed(() => {
+  return props.result.notion_status && props.result.notion_status.includes('Success')
+})
+
 const statusClass = computed(() => {
-  if (props.result.notion_status && props.result.notion_status.includes('Success')) {
-    return 'status-success'
-  }
-  return 'status-error'
+  return isSuccess.value ? 'status-success' : 'status-error'
 })
 
 const statusText = computed(() => {
-  if (props.result.notion_status && props.result.notion_status.includes('Success')) {
+  if (isSuccess.value) {
     return 'Notion 同步成功'
   }
-  return props.result.notion_status || '未知錯誤'
+  return 'Notion 同步失敗'
 })
 </script>
 
@@ -29,39 +30,37 @@ const statusText = computed(() => {
 
     <span :class="['status-tag', statusClass]">{{ statusText }}</span>
 
-    <!-- File Processing Status -->
-    <div v-if="result.file_details" class="file-status-section">
-      <h3 class="status-header">
-        檔案處理狀態
-        <span class="file-count">({{ result.successful_files }}/{{ result.total_files }} 成功)</span>
+    <!-- Processed Files List -->
+    <div v-if="result.files && result.files.length > 0" class="files-section">
+      <h3 class="files-header">
+        已處理檔案 ({{ result.files.length }})
       </h3>
 
       <div class="file-list">
         <div
-          v-for="file in result.file_details"
-          :key="file.filename"
+          v-for="filename in result.files"
+          :key="filename"
           class="file-item"
-          :class="file.status"
+          :class="{ 'file-item-error': !isSuccess }"
         >
-          <span class="status-icon">
-            <span v-if="file.status === 'success'" class="icon-success">✓</span>
-            <span v-else-if="file.status === 'failed'" class="icon-failed">✗</span>
-            <span v-else class="icon-skipped">⊘</span>
-          </span>
-
-          <div class="file-info">
-            <span class="filename">{{ file.filename }}</span>
-            <span v-if="file.method" class="method-tag">{{ file.method }}</span>
-            <span v-if="file.char_count > 0" class="char-count">{{ file.char_count }} 字元</span>
-          </div>
-
-          <span v-if="file.message" class="error-message">{{ file.message }}</span>
+          <span class="file-icon">{{ isSuccess ? '✓' : '!' }}</span>
+          <span class="filename">{{ filename }}</span>
         </div>
       </div>
     </div>
 
-    <h3 class="section-title">摘要內容 (Markdown)</h3>
-    <pre class="summary-content">{{ result.summary }}</pre>
+    <div v-if="result.title" class="title-section">
+      <h3 class="section-title">生成標題</h3>
+      <p class="title-content">{{ result.title }}</p>
+    </div>
+
+    <div v-if="isSuccess" class="success-message">
+      <p>✅ 內容已同步到 Notion，請前往 Notion 查看完整筆記</p>
+    </div>
+
+    <div v-else class="error-message">
+      <p>❌ 同步失敗: {{ result.notion_status || '未知錯誤' }}</p>
+    </div>
   </div>
 </template>
 
@@ -104,20 +103,7 @@ const statusText = computed(() => {
     color: #991b1b;
 }
 
-pre.summary-content {
-    background: #1e293b;
-    color: #e2e8f0;
-    padding: 16px;
-    border-radius: 8px;
-    max-height: 400px;
-    overflow: auto;
-    font-size: 14px;
-    white-space: pre-wrap;
-    margin: 0;
-}
-
-/* File Processing Status Section */
-.file-status-section {
+.title-section {
     background: #ffffff;
     border: 1px solid #e5e7eb;
     border-radius: 8px;
@@ -125,20 +111,57 @@ pre.summary-content {
     margin: 16px 0;
 }
 
-.status-header {
+.title-content {
+    margin: 8px 0 0 0;
+    font-size: 16px;
+    font-weight: 600;
+    color: #111827;
+}
+
+.success-message {
+    background: #f0fdf4;
+    border: 1px solid #86efac;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+}
+
+.success-message p {
+    margin: 0;
+    font-size: 14px;
+    color: #166534;
+    text-align: center;
+}
+
+.error-message {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+    word-break: break-word; 
+}
+
+.error-message p {
+    margin: 0;
+    font-size: 14px;
+    color: #991b1b;
+}
+
+/* Processed Files Section */
+.files-section {
+    background: #ffffff;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+}
+
+.files-header {
     margin: 0 0 12px 0;
     font-size: 15px;
     font-weight: 600;
     color: #374151;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-}
-
-.file-count {
-    font-size: 13px;
-    font-weight: 500;
-    color: #6b7280;
 }
 
 .file-list {
@@ -150,90 +173,40 @@ pre.summary-content {
 .file-item {
     display: flex;
     align-items: center;
-    gap: 12px;
-    padding: 10px 12px;
+    gap: 10px;
+    padding: 8px 12px;
     border-radius: 6px;
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-}
-
-.file-item.success {
     background: #f0fdf4;
-    border-color: #86efac;
+    border: 1px solid #86efac;
 }
 
-.file-item.failed {
+.file-item-error {
     background: #fef2f2;
-    border-color: #fca5a5;
+    border: 1px solid #fecaca;
 }
 
-.file-item.skipped {
-    background: #fefce8;
-    border-color: #fde047;
+.file-item-error .file-icon {
+    background: #fee2e2;
+    color: #dc2626;
 }
 
-.status-icon {
+.file-icon {
     flex-shrink: 0;
-    width: 20px;
-    height: 20px;
+    width: 18px;
+    height: 18px;
     display: flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
+    background: #dcfce7;
+    color: #16a34a;
     font-size: 12px;
     font-weight: bold;
-}
-
-.icon-success {
-    color: #16a34a;
-    background: #dcfce7;
-    padding: 2px;
-}
-
-.icon-failed {
-    color: #dc2626;
-    background: #fee2e2;
-    padding: 2px;
-}
-
-.icon-skipped {
-    color: #ca8a04;
-    background: #fef9c3;
-    padding: 2px;
-}
-
-.file-info {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    flex-wrap: wrap;
 }
 
 .filename {
     font-size: 14px;
     font-weight: 500;
     color: #111827;
-}
-
-.method-tag {
-    font-size: 11px;
-    padding: 2px 8px;
-    border-radius: 4px;
-    background: #e0e7ff;
-    color: #4338ca;
-    font-weight: 600;
-    text-transform: uppercase;
-}
-
-.char-count {
-    font-size: 12px;
-    color: #6b7280;
-}
-
-.error-message {
-    font-size: 12px;
-    color: #dc2626;
-    font-style: italic;
 }
 </style>

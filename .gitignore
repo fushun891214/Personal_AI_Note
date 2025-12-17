@@ -1,7 +1,8 @@
 .env
 .venv
-backend/services/__pycache__
 backend/__pycache__
-frontend/.vscode
-frontend/.vite/deps
+backend/services/__pycache__
+backend/managers/__pycache__
+frontend/dist
+frontend/node_modules
 

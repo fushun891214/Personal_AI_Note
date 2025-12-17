@@ -3,6 +3,10 @@ defineProps({
   files: {
     type: Array,
     required: true
+  },
+  disabled: {
+    type: Boolean,
+    default: false
   }
 })
 
@@ -17,12 +21,14 @@ defineEmits(['remove-file'])
       class="file-item"
     >
       <span class="file-info">{{ file.name }}</span>
-      <span 
+      <button 
+        v-if="!disabled"
         class="delete-btn" 
         @click="$emit('remove-file', index)"
+        type="button"
       >
         ✕
-      </span>
+      </button>
     </div>
   </div>
 </template>
@@ -61,17 +67,34 @@ defineEmits(['remove-file'])
     margin-right: 10px;
 }
 
+
 .delete-btn {
+    background: transparent;
+    border: none;
     color: #9ca3af;
     cursor: pointer;
     padding: 4px 8px;
     border-radius: 4px;
     font-weight: bold;
     transition: all 0.2s;
+    font-size: 14px;
+    line-height: 1;
+    
+    /* Reset global button styles */
+    width: auto;
+    display: inline-flex;
+    flex: none;
+    box-shadow: none;
+    margin: 0;
+    align-items: center;
+    justify-content: center;
 }
 
 .delete-btn:hover {
     background-color: #fee2e2;
     color: #ef4444;
+    transform: none; /* Prevent global hover transform */
+    box-shadow: none;
 }
+
 </style>

@@ -1,31 +1,39 @@
-import io
-from pypdf import PdfReader
-from pptx import Presentation
+import os
+import tempfile
+from fastapi import UploadFile
 
-def extract_text_from_pdf(file_bytes: bytes) -> str:
-    """Extract text from a PDF file."""
-    try:
-        reader = PdfReader(io.BytesIO(file_bytes))
-        text = ""
-        for page in reader.pages:
-            extracted = page.extract_text()
-            if extracted:
-                text += extracted + "\n"
-        return text
-    except Exception as e:
-        print(f"Error reading PDF: {e}")
-        return ""
 
-def extract_text_from_ppt(file_bytes: bytes) -> str:
-    """Extract text from a PowerPoint file."""
-    try:
-        prs = Presentation(io.BytesIO(file_bytes))
-        text = ""
-        for slide in prs.slides:
-            for shape in slide.shapes:
-                if hasattr(shape, "text"):
-                    text += shape.text + "\n"
-        return text
-    except Exception as e:
-        print(f"Error reading PPT: {e}")
-        return ""
+def save_upload_to_temp(file: UploadFile) -> str:
+    """
+    保存 UploadFile 到臨時文件
+
+    Args:
+        file: FastAPI UploadFile 對象
+
+    Returns:
+        臨時文件的絕對路徑
+    """
+    suffix = os.path.splitext(file.filename)[1]
+    # save to backend/uploads/temp
+    upload_dir = os.path.join(os.getcwd(), "uploads", "temp")
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # Generate unique filename
+    import uuid
+    filename = f"{uuid.uuid4()}{suffix}"
+    file_path = os.path.join(upload_dir, filename)
+
+    with open(file_path, "wb") as f:
+        f.write(file.file.read())
+    
+    return file_path
+
+def cleanup_temp_file(path: str) -> None:
+    """
+    清理臨時文件
+
+    Args:
+        path: 文件路徑
+    """
+    if os.path.exists(path):
+        os.remove(path)

@@ -4,20 +4,20 @@ import axios from 'axios'
 import FileUploader from '../components/FileUploader.vue'
 import FileList from '../components/FileList.vue'
 import SummaryResult from '../components/SummaryResult.vue'
+import PreviewModal from '../components/PreviewModal.vue'
+import { useSummaryStore } from '../stores/summary'
 
+const store = useSummaryStore()
 const files = ref([])
 const isProcessing = ref(false)
 const result = ref(null)
 
 const handleFilesSelected = (newFiles) => {
   files.value = [...files.value, ...newFiles]
-  // Hide previous result if adding new files
-  if (result.value) {
-    result.value = null
-  }
 }
 
 const handleRemoveFile = (index) => {
+  if (isProcessing.value) return
   files.value.splice(index, 1)
 }
 
@@ -48,7 +48,11 @@ const handleSubmit = async () => {
       throw new Error(response.data.message)
     }
 
-    result.value = response.data
+    // New Flow: Open Preview Modal
+    // response.data contains { title, blocks, pdf_urls, ... }
+    const pdfUrl = response.data.pdf_urls ? response.data.pdf_urls[0] : null
+    store.setSummary(response.data, pdfUrl)
+
   } catch (error) {
     console.error('Error:', error)
     alert(`上傳發生錯誤: ${error.message || '未知錯誤'}`)
@@ -65,48 +69,97 @@ const buttonText = computed(() => {
 
 <template>
   <div class="home-view">
-    <div class="hero">
-      <h1>讓 AI 幫你自動化生成會議摘要</h1>
-    </div>
+    <div class="layout-container">
+      <div class="upload-section">
+        <div class="hero">
+          <h1>讓 AI 幫你自動化生成論文摘要</h1>
+        </div>
 
-    <form @submit.prevent="handleSubmit">
-      <FileUploader @files-selected="handleFilesSelected" />
+        <form @submit.prevent="handleSubmit">
+          <FileUploader :disabled="isProcessing" @files-selected="handleFilesSelected" />
 
-      <FileList :files="files" @remove-file="handleRemoveFile" />
+          <FileList :files="files" :disabled="isProcessing" @remove-file="handleRemoveFile" />
 
-      <div class="button-group">
-        <button
-          type="button"
-          v-if="files.length > 0"
-          class="secondary-btn"
-          @click="handleReset"
-          :disabled="isProcessing"
-        >
-          重新選擇
-        </button>
+          <div class="button-group">
+            <button
+              type="button"
+              v-if="files.length > 0"
+              class="secondary-btn"
+              @click="handleReset"
+              :disabled="isProcessing"
+            >
+              重新選擇
+            </button>
 
-        <button
-          type="submit"
-          :disabled="files.length === 0 || isProcessing"
-        >
-          {{ buttonText }}
-        </button>
+            <button
+              type="submit"
+              :disabled="files.length === 0 || isProcessing"
+            >
+              {{ buttonText }}
+            </button>
+          </div>
+        </form>
       </div>
-    </form>
 
-    <SummaryResult v-if="result" :result="result" />
+      <!-- Old result section (optional, maybe keep for error display or history?) -->
+      <!-- For now, we rely on the Modal -->
+      <!-- <div class="result-section" v-if="result">
+        <SummaryResult :result="result" />
+      </div> -->
+
+      <!-- New Preview Modal -->
+      <PreviewModal />
+      
+    </div>
   </div>
 </template>
 
 <style scoped>
-.home-view {
-  /* This container already inherits from main-container in App.vue */
+.layout-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  max-width: 100%;
+  margin: 0 auto;
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .layout-container {
+    display: grid;
+    grid-template-columns: 560px 1fr;
+    align-items: start;
+    text-align: left;
+    gap: 3rem;
+  }
+}
+
+.upload-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.result-section {
+  width: 100%;
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
 }
 
 .hero {
-  margin-bottom: 48px;
+  margin-bottom: 32px;
   text-align: center;
 }
+
+@media (min-width: 1024px) {
+  .hero {
+    text-align: left;
+  }
+}
+
 
 .hero h1 {
   margin: 0 0 12px;
