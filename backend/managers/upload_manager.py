@@ -43,7 +43,7 @@ class UploadManager:
                 basename = os.path.basename(path)
                 pdf_urls.append(f"/uploads/temp/{basename}")
 
-            # 4. 返回成功響應
+            # 4. 返回成功響應（不存 Notion）
             return {
                 "title": result["title"],
                 "blocks": result["blocks"],
