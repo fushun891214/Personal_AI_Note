@@ -499,3 +499,72 @@ async def summarize_documents_from_paths(file_paths: List[str], filenames: List[
     except Exception as e:
         print(f"[GEMINI API] Failed to process documents: {e}")
         raise RuntimeError(f"Failed to generate summary: {e}")
+
+
+async def refine_summary(original_summary: dict, user_feedback: str) -> dict:
+    """
+    根據用戶反饋調整筆記內容
+    
+    Args:
+        original_summary: 原始筆記內容 (包含 title 和 blocks)
+        user_feedback: 用戶的調整需求
+        
+    Returns:
+        更新後的筆記內容
+    """
+    try:
+        if not settings.GEMINI_API_KEY:
+            raise ValueError("Gemini API Key not found")
+            
+        print(f"[GEMINI API] Refining summary with feedback: {user_feedback}")
+        
+        # 將原始 blocks 轉為 JSON 字串以便放入 Prompt
+        original_json = json.dumps(original_summary, ensure_ascii=False, indent=2)
+        
+        prompt = (
+            "# Role Definition\n"
+            "你是同一位耐心的博士生導師。你之前已經生成了一份論文導讀筆記，現在學生提出了一些修改建議。\n"
+            "你的任務是：根據學生的反饋，修改並優化這份筆記。\n\n"
+            
+            "# User Feedback (學生反饋)\n"
+            f"{user_feedback}\n\n"
+            
+            "# Original Summary (原始筆記)\n"
+            f"{original_json}\n\n"
+            
+            "# Instructions\n"
+            "1. **針對性修改**：只根據用戶的反饋進行必要的調整。如果用戶只要求修改某個部分，其他部分保持原樣。\n"
+            "2. **維持格式**：必須嚴格遵守 Notion Block 格式（與原始筆記一致）。\n"
+            "3. **完整性**：返回完整的筆記內容（包含未修改的部分），不要只返回修改的片段。\n"
+            "4. **品質保持**：修改後的內容必須保持原有的詳細程度和通俗化風格。\n\n"
+            
+            "# Output Context\n"
+            "請直接輸出修改後的完整 JSON，符合之前的 Notion Blocks Schema。"
+        )
+        
+        # 配置結構化輸出
+        generation_config = GenerationConfig(
+            response_mime_type="application/json",
+            response_schema=NOTION_BLOCKS_SCHEMA
+        )
+        
+        model = genai.GenerativeModel(
+            model_name=settings.GEMINI_MODEL_NAME,
+            generation_config=generation_config
+        )
+        
+        # 使用 generate_content (這是一個新的對話回合)
+        response = await model.generate_content_async(prompt)
+        
+        # 解析結果
+        result = json.loads(response.text)
+        
+        print(f"[GEMINI API] Success: Refined summary based on feedback.")
+        return {
+            "title": result.get("title", original_summary.get("title")),
+            "blocks": result.get("blocks", [])
+        }
+        
+    except Exception as e:
+        print(f"[GEMINI API] Failed to refine summary: {e}")
+        raise RuntimeError(f"Failed to refine summary: {e}")

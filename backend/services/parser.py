@@ -14,9 +14,19 @@ def save_upload_to_temp(file: UploadFile) -> str:
         臨時文件的絕對路徑
     """
     suffix = os.path.splitext(file.filename)[1]
-    with tempfile.NamedTemporaryFile(delete=False, suffix=suffix) as tmp:
-        tmp.write(file.file.read())
-        return tmp.name
+    # save to backend/uploads/temp
+    upload_dir = os.path.join(os.getcwd(), "uploads", "temp")
+    os.makedirs(upload_dir, exist_ok=True)
+    
+    # Generate unique filename
+    import uuid
+    filename = f"{uuid.uuid4()}{suffix}"
+    file_path = os.path.join(upload_dir, filename)
+
+    with open(file_path, "wb") as f:
+        f.write(file.file.read())
+    
+    return file_path
 
 def cleanup_temp_file(path: str) -> None:
     """

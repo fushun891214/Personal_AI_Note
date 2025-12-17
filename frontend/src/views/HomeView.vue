@@ -4,23 +4,21 @@ import axios from 'axios'
 import FileUploader from '../components/FileUploader.vue'
 import FileList from '../components/FileList.vue'
 import SummaryResult from '../components/SummaryResult.vue'
+import PreviewModal from '../components/PreviewModal.vue'
+import { useSummaryStore } from '../stores/summary'
 
+const store = useSummaryStore()
 const files = ref([])
 const isProcessing = ref(false)
 const result = ref(null)
 
 const handleFilesSelected = (newFiles) => {
   files.value = [...files.value, ...newFiles]
-  // Hide previous result if adding new files
-  if (result.value) {
-    result.value = null
-  }
 }
 
 const handleRemoveFile = (index) => {
   if (isProcessing.value) return
   files.value.splice(index, 1)
-  result.value = null
 }
 
 const handleReset = () => {
@@ -50,7 +48,11 @@ const handleSubmit = async () => {
       throw new Error(response.data.message)
     }
 
-    result.value = response.data
+    // New Flow: Open Preview Modal
+    // response.data contains { title, blocks, pdf_urls, ... }
+    const pdfUrl = response.data.pdf_urls ? response.data.pdf_urls[0] : null
+    store.setSummary(response.data, pdfUrl)
+
   } catch (error) {
     console.error('Error:', error)
     alert(`上傳發生錯誤: ${error.message || '未知錯誤'}`)
@@ -99,9 +101,15 @@ const buttonText = computed(() => {
         </form>
       </div>
 
-      <div class="result-section" v-if="result">
+      <!-- Old result section (optional, maybe keep for error display or history?) -->
+      <!-- For now, we rely on the Modal -->
+      <!-- <div class="result-section" v-if="result">
         <SummaryResult :result="result" />
-      </div>
+      </div> -->
+
+      <!-- New Preview Modal -->
+      <PreviewModal />
+      
     </div>
   </div>
 </template>
