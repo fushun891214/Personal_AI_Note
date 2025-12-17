@@ -275,4 +275,33 @@ const handleClose = () => {
 :deep(details) { border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; margin: 12px 0; background: #fafafa; }
 :deep(summary) { cursor: pointer; font-weight: 600; color: #374151; list-style: none; }
 :deep(summary::-webkit-details-marker) { display: none; }
+
+/* RWD: 小螢幕調整 */
+@media (max-width: 768px) {
+  .modal-body {
+    flex-direction: column;
+    height: auto;
+    max-height: 50vh;
+  }
+  
+  .pdf-panel {
+    min-height: 200px;
+    flex: none;
+  }
+  
+  .summary-panel {
+    flex: none;
+    max-height: 300px;
+  }
+  
+  .footer-buttons {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  
+  .footer-buttons button {
+    flex: 1;
+    min-width: 100px;
+  }
+}
 </style>

@@ -58,11 +58,11 @@ const handleDrop = (event) => {
 <style scoped>
 .upload-box {
     border: 2px dashed #d1d5db;
-    border-radius: 14px;
-    padding: 32px 20px;
+    border-radius: 20px;
+    padding: 60px 40px;
     text-align: center;
     background: #f9fafb;
-    margin-bottom: 24px;
+    margin-bottom: 32px;
     transition: all 0.2s;
     cursor: pointer;
     position: relative;
@@ -82,20 +82,41 @@ const handleDrop = (event) => {
 }
 
 .upload-box p {
-    margin: 8px 0 4px;
-    font-size: 16px;
-    font-weight: 500;
+    margin: 12px 0 8px;
+    font-size: 20px;
+    font-weight: 600;
     color: #374151;
 }
 
 .icon {
-    font-size: 48px; 
-    margin-bottom: 16px;
+    font-size: 72px; 
+    margin-bottom: 20px;
 }
 
 .hint {
-    margin-top: 8px;
-    font-size: 12px;
+    margin-top: 12px;
+    font-size: 14px;
     color: #9ca3af;
+}
+
+/* RWD: 小螢幕調整 */
+@media (max-width: 768px) {
+    .upload-box {
+        padding: 40px 20px;
+        border-radius: 14px;
+    }
+    
+    .icon {
+        font-size: 48px;
+        margin-bottom: 12px;
+    }
+    
+    .upload-box p {
+        font-size: 16px;
+    }
+    
+    .hint {
+        font-size: 12px;
+    }
 }
 </style>

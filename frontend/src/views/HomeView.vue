@@ -80,7 +80,7 @@ const buttonText = computed(() => {
     <div class="layout-container">
       <div class="upload-section">
         <div class="hero">
-          <h1>讓 AI 幫你自動化生成論文摘要</h1>
+          <h1>讓 AI 幫你自動整理論文筆記</h1>
         </div>
 
         <form @submit.prevent="handleSubmit">
@@ -127,21 +127,14 @@ const buttonText = computed(() => {
   max-width: 100%;
   margin: 0 auto;
   width: 100%;
-}
-
-@media (min-width: 1024px) {
-  .layout-container {
-    display: grid;
-    grid-template-columns: 560px 1fr;
-    align-items: start;
-    text-align: left;
-    gap: 3rem;
-  }
+  align-items: center;
 }
 
 .upload-section {
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 700px;
 }
 
 .result-section {
@@ -167,12 +160,26 @@ const buttonText = computed(() => {
 
 
 .hero h1 {
-  margin: 0 0 12px;
-  font-size: 36px;
+  margin: 0 0 16px;
+  font-size: 48px;
   font-weight: 800;
   color: #111827;
   line-height: 1.2;
   letter-spacing: -0.02em;
+  white-space: nowrap;
+}
+
+/* RWD: 小螢幕調整 */
+@media (max-width: 768px) {
+  .hero h1 {
+    font-size: 28px;
+    white-space: normal;
+  }
+  
+  .upload-section {
+    max-width: 100%;
+    padding: 0 16px;
+  }
 }
 
 .button-group {

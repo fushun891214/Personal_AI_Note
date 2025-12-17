@@ -5,12 +5,6 @@
 
 <template>
   <div class="app-container">
-    <header class="app-header">
-      <div class="header-content">
-        <div class="brand">論文摘要小幫手</div>
-      </div>
-    </header>
-
     <main class="main-container">
       <RouterView />
     </main>
@@ -23,17 +17,20 @@
     box-sizing: border-box;
 }
 
-body {
+html, body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    background: #ffffff; /* Changed to white */
+    background: #ffffff;
     color: #111827;
+    overflow: hidden;
+    height: 100%;
 }
 
 .app-container {
     min-height: 100vh;
     display: flex;
     flex-direction: column;
+    justify-content: center;
 }
 
 /* Header Styles */
@@ -85,11 +82,10 @@ body {
 
 /* Main Content */
 .main-container {
-    max-width: 900px;
+    max-width: 1100px;
     margin: 0 auto;
-    padding: 60px 24px;
+    padding: 40px 48px;
     width: 100%;
-    flex: 1;
 }
 
 button {

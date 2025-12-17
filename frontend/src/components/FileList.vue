@@ -97,4 +97,19 @@ defineEmits(['remove-file'])
     box-shadow: none;
 }
 
+/* RWD: 小螢幕調整 */
+@media (max-width: 768px) {
+  .file-item {
+    padding: 8px 12px;
+    font-size: 13px;
+  }
+  
+  .file-info {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    max-width: calc(100% - 40px);
+  }
+}
+
 </style>
