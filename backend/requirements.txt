@@ -4,3 +4,4 @@ python-dotenv
 google-generativeai
 notion-client
 python-multipart
+reportlab

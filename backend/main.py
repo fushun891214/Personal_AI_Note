@@ -1,21 +1,25 @@
-from fastapi import FastAPI, UploadFile, File
-from fastapi.responses import JSONResponse
+"""
+Personal AI Note - Backend 應用入口
 
-from typing import List
-from managers import upload_manager
+職責：
+1. 初始化 FastAPI 應用
+2. 掛載靜態檔案服務
+3. 註冊路由模組
+"""
+from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
+import os
 
-app = FastAPI()
+from routers import upload, summary
 
-@app.post("/api/upload")
-async def upload_document(files: List[UploadFile] = File(...)):
-    """
-    文件上傳 API
-    職責：HTTP 路由，參數接收，調用 Manager，返回響應
-    """
-    manager = upload_manager.UploadManager()
-    result = await manager.process_upload(files)
+app = FastAPI(title="Personal AI Note", version="1.0.0")
 
-    if result.get("error"):
-        return JSONResponse(status_code=400, content=result)
+# 確保 uploads 目錄存在
+os.makedirs("uploads", exist_ok=True)
 
-    return result
+# 掛載靜態檔案（用於 PDF 預覽）
+app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+# 註冊路由
+app.include_router(upload.router)
+app.include_router(summary.router)
