@@ -1,9 +1,9 @@
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import axios from 'axios'
 import FileUploader from '../components/FileUploader.vue'
 import FileList from '../components/FileList.vue'
-import SummaryResult from '../components/SummaryResult.vue'
+
 import PreviewModal from '../components/PreviewModal.vue'
 import { useSummaryStore } from '../stores/summary'
 
@@ -11,6 +11,14 @@ const store = useSummaryStore()
 const files = ref([])
 const isProcessing = ref(false)
 const result = ref(null)
+
+// 監聽 Modal 關閉事件，清空檔案列表
+watch(() => store.isModalOpen, (newVal, oldVal) => {
+  if (oldVal === true && newVal === false) {
+    files.value = []
+    result.value = null
+  }
+})
 
 const handleFilesSelected = (newFiles) => {
   files.value = [...files.value, ...newFiles]
@@ -103,9 +111,6 @@ const buttonText = computed(() => {
 
       <!-- Old result section (optional, maybe keep for error display or history?) -->
       <!-- For now, we rely on the Modal -->
-      <!-- <div class="result-section" v-if="result">
-        <SummaryResult :result="result" />
-      </div> -->
 
       <!-- New Preview Modal -->
       <PreviewModal />

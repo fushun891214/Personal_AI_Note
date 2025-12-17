@@ -187,30 +187,60 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-AI Note Summary (AI 筆記摘要助手) - An intelligent note summarization tool that:
-- Accepts PDF and PowerPoint uploads
-- Uses Google Gemini 2.5 Flash to generate structured Markdown summaries
-- Automatically syncs summaries to a Notion database
+AI Note Summary (AI 筆記摘要助手) - 智慧論文/簡報摘要工具：
+- 支援 PDF 與 PowerPoint 檔案上傳
+- 使用 Google Gemini 2.5 Flash 生成結構化 Notion Blocks 格式摘要
+- 支援用戶回饋循環，可根據反饋調整摘要內容
+- 確認後自動同步至 Notion 資料庫
 
 ## Architecture
 
-**Three-layer service architecture:**
+**前後端分離架構：**
 
-1. **API Layer** (`backend/main.py`): FastAPI application with single `/api/upload` endpoint
-2. **Service Layer** (`backend/services/`):
-   - `parser.py`: Document parsing (PDF via pypdf, PPT via python-pptx)
-   - `llm.py`: Gemini API integration for summarization
-   - `notion.py`: Notion API integration for page creation
-3. **Frontend**: Static HTML/CSS/JS served via FastAPI's StaticFiles mount
+### Backend (`backend/`)
+FastAPI 應用程式，提供 RESTful API：
+
+| Endpoint | Method | 功能 |
+|----------|--------|------|
+| `/api/upload` | POST | 上傳文件，返回 AI 摘要與 PDF 預覽 URL |
+| `/api/refine` | POST | 根據用戶回饋調整摘要內容 |
+| `/api/save-to-notion` | POST | 確認後儲存至 Notion |
+
+**Service Layer** (`backend/services/`):
+- `parser.py`: 文件解析 (PDF via pypdf, PPT via python-pptx)
+- `llm.py`: Gemini API 整合，輸出 Notion Blocks JSON Schema
+- `notion.py`: Notion API 整合
+- `upload.py`: 檔案上傳處理
+
+**Manager Layer** (`backend/managers/`):
+- `upload_manager.py`: 上傳流程編排
+
+### Frontend (`frontend/`)
+Vue 3 + Vite + Pinia 單頁應用：
+
+**核心組件** (`frontend/src/components/`):
+- `FileUploader.vue`: 拖曳上傳區域
+- `FileList.vue`: 已選檔案列表
+- `PreviewModal.vue`: 摘要預覽 Modal，支援 PDF 預覽、回饋輸入、Notion 儲存
+
+**狀態管理** (`frontend/src/stores/`):
+- `summary.js`: Pinia store 管理摘要狀態
 
 **Request Flow:**
-`upload` → `extract text` → `summarize (Gemini)` → `create Notion page` → `return JSON response`
+```
+upload → extract text → summarize (Gemini) → preview modal
+    ↓
+[用戶回饋] → refine → 更新預覽
+    ↓
+[確認] → save-to-notion → 完成
+```
 
 ## Environment Configuration
 
 Required environment variables in `.env`:
 ```ini
 GEMINI_API_KEY=AIza...              # Google Gemini API Key
+GEMINI_MODEL_NAME=gemini-2.5-flash  # (Optional) 模型版本
 NOTION_API_KEY=secret_...           # Notion Integration Token
 NOTION_DATABASE_ID=...              # Target Notion Database ID
 ```
@@ -219,15 +249,29 @@ Configuration is managed through `backend/config.py` using `python-dotenv`.
 
 ## Development Commands
 
-### Start Development Server
+### Start Development (推薦)
+
+**Terminal 1 - Backend:**
 ```bash
-uvicorn backend.main:app --reload
+cd backend
+uvicorn main:app --reload
 ```
-Access at: http://127.0.0.1:8000
+API: http://127.0.0.1:8000
+
+**Terminal 2 - Frontend:**
+```bash
+cd frontend
+npm run dev
+```
+UI: http://localhost:5173 (Vite proxy 自動轉發 `/api` 至後端)
 
 ### Install Dependencies
 ```bash
-pip install -r requirements.txt
+# Backend
+cd backend && pip install -r requirements.txt
+
+# Frontend
+cd frontend && npm install
 ```
 
 ### Docker Build & Run
@@ -239,22 +283,25 @@ docker run -p 8000:8000 --env-file .env ai-notes-summary
 ## Key Implementation Details
 
 ### LLM Service (`services/llm.py`)
-- Model: `gemini-2.5-flash`
-- No content length limit (Gemini API handles context automatically)
-- Structured prompt (Traditional Chinese) requests bold section headings, nested bullet lists, and concise summary format for Notion compatibility
+- Model: `gemini-2.5-flash` (可透過環境變數覆寫)
+- 使用 JSON Schema 強制輸出 Notion Blocks 格式
+- 支援 `refine_summary()` 根據用戶回饋調整摘要
+- Block types: `callout`, `heading_2`, `heading_3`, `bulleted_list_item`, `code`, `quote`, `toggle`
 
 ### Notion Service (`services/notion.py`)
 - Creates pages with `Name` property (title field)
-- Content stored as paragraph block (limited to 2,000 characters)
-- **Important**: Notion Integration must be invited to target database before write access works
+- 支援完整 Notion Block 結構寫入
+- **Important**: Notion Integration 必須先被邀請至目標 Database
 
 ### File Parsing (`services/parser.py`)
 - PDF: Uses `pypdf.PdfReader` to extract text page-by-page
 - PPT/PPTX: Uses `python-pptx.Presentation` to extract shape text from each slide
 - Both return concatenated text strings
 
-### Static Files Mounting
-Frontend is mounted **after** API routes in `main.py` to prevent route conflicts. The `html=True` parameter enables serving `index.html` at root path.
+### Frontend State Management
+- 使用 Pinia store (`useSummaryStore`) 管理摘要狀態
+- `PreviewModal` 組件處理預覽、回饋、儲存流程
+- Vite proxy (`vite.config.js`) 處理開發環境 API 轉發
 
 ## Language
 
