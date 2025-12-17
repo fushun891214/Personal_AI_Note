@@ -20,6 +20,7 @@ const handleFilesSelected = (newFiles) => {
 const handleRemoveFile = (index) => {
   if (isProcessing.value) return
   files.value.splice(index, 1)
+  result.value = null
 }
 
 const handleReset = () => {
@@ -66,44 +67,91 @@ const buttonText = computed(() => {
 
 <template>
   <div class="home-view">
-    <div class="hero">
-      <h1>讓 AI 幫你自動化生成筆記摘要</h1>
-    </div>
+    <div class="layout-container">
+      <div class="upload-section">
+        <div class="hero">
+          <h1>讓 AI 幫你自動化生成論文摘要</h1>
+        </div>
 
-    <form @submit.prevent="handleSubmit">
-      <FileUploader :disabled="isProcessing" @files-selected="handleFilesSelected" />
+        <form @submit.prevent="handleSubmit">
+          <FileUploader :disabled="isProcessing" @files-selected="handleFilesSelected" />
 
-      <FileList :files="files" :disabled="isProcessing" @remove-file="handleRemoveFile" />
+          <FileList :files="files" :disabled="isProcessing" @remove-file="handleRemoveFile" />
 
-      <div class="button-group">
-        <button
-          type="button"
-          v-if="files.length > 0"
-          class="secondary-btn"
-          @click="handleReset"
-          :disabled="isProcessing"
-        >
-          重新選擇
-        </button>
+          <div class="button-group">
+            <button
+              type="button"
+              v-if="files.length > 0"
+              class="secondary-btn"
+              @click="handleReset"
+              :disabled="isProcessing"
+            >
+              重新選擇
+            </button>
 
-        <button
-          type="submit"
-          :disabled="files.length === 0 || isProcessing"
-        >
-          {{ buttonText }}
-        </button>
+            <button
+              type="submit"
+              :disabled="files.length === 0 || isProcessing"
+            >
+              {{ buttonText }}
+            </button>
+          </div>
+        </form>
       </div>
-    </form>
 
-    <SummaryResult v-if="result" :result="result" />
+      <div class="result-section" v-if="result">
+        <SummaryResult :result="result" />
+      </div>
+    </div>
   </div>
 </template>
 
 <style scoped>
+.layout-container {
+  display: flex;
+  flex-direction: column;
+  gap: 2rem;
+  max-width: 100%;
+  margin: 0 auto;
+  width: 100%;
+}
+
+@media (min-width: 1024px) {
+  .layout-container {
+    display: grid;
+    grid-template-columns: 560px 1fr;
+    align-items: start;
+    text-align: left;
+    gap: 3rem;
+  }
+}
+
+.upload-section {
+  display: flex;
+  flex-direction: column;
+}
+
+.result-section {
+  width: 100%;
+  animation: fadeIn 0.5s ease-out;
+}
+
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
 .hero {
-  margin-bottom: 48px;
+  margin-bottom: 32px;
   text-align: center;
 }
+
+@media (min-width: 1024px) {
+  .hero {
+    text-align: left;
+  }
+}
+
 
 .hero h1 {
   margin: 0 0 12px;

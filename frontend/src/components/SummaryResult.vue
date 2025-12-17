@@ -8,18 +8,19 @@ const props = defineProps({
   }
 })
 
+const isSuccess = computed(() => {
+  return props.result.notion_status && props.result.notion_status.includes('Success')
+})
+
 const statusClass = computed(() => {
-  if (props.result.notion_status && props.result.notion_status.includes('Success')) {
-    return 'status-success'
-  }
-  return 'status-error'
+  return isSuccess.value ? 'status-success' : 'status-error'
 })
 
 const statusText = computed(() => {
-  if (props.result.notion_status && props.result.notion_status.includes('Success')) {
+  if (isSuccess.value) {
     return 'Notion 同步成功'
   }
-  return props.result.notion_status || '未知錯誤'
+  return 'Notion 同步失敗'
 })
 </script>
 
@@ -40,8 +41,9 @@ const statusText = computed(() => {
           v-for="filename in result.files"
           :key="filename"
           class="file-item"
+          :class="{ 'file-item-error': !isSuccess }"
         >
-          <span class="file-icon">✓</span>
+          <span class="file-icon">{{ isSuccess ? '✓' : '!' }}</span>
           <span class="filename">{{ filename }}</span>
         </div>
       </div>
@@ -52,8 +54,12 @@ const statusText = computed(() => {
       <p class="title-content">{{ result.title }}</p>
     </div>
 
-    <div class="success-message">
+    <div v-if="isSuccess" class="success-message">
       <p>✅ 內容已同步到 Notion，請前往 Notion 查看完整筆記</p>
+    </div>
+
+    <div v-else class="error-message">
+      <p>❌ 同步失敗: {{ result.notion_status || '未知錯誤' }}</p>
     </div>
   </div>
 </template>
@@ -127,6 +133,21 @@ const statusText = computed(() => {
     text-align: center;
 }
 
+.error-message {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    border-radius: 8px;
+    padding: 16px;
+    margin: 16px 0;
+    word-break: break-word; 
+}
+
+.error-message p {
+    margin: 0;
+    font-size: 14px;
+    color: #991b1b;
+}
+
 /* Processed Files Section */
 .files-section {
     background: #ffffff;
@@ -157,6 +178,16 @@ const statusText = computed(() => {
     border-radius: 6px;
     background: #f0fdf4;
     border: 1px solid #86efac;
+}
+
+.file-item-error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+}
+
+.file-item-error .file-icon {
+    background: #fee2e2;
+    color: #dc2626;
 }
 
 .file-icon {
