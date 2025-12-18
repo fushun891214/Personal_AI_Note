@@ -123,7 +123,8 @@ async def get_static_options_menu(
 
     return {
         "title": title,
-        "blocks": blocks
+        "blocks": blocks,
+        "is_initial_menu": True
     }
 
 
@@ -206,7 +207,8 @@ async def refine_summary(
 
             "**3. 格式規範**：\n"
             "   - Text content 中絕對不要使用 Markdown 語法（如 `**`），必須使用 annotations。\n"
-            "   - Text content 開頭絕對不要包含 `•`、`-` 等列表符號。\n\n"
+            "   - Text content 開頭絕對不要包含 `•`、`-` 等列表符號。\n"
+            "   - **嚴格禁止使用任何 Emoji 符號**（如 💡、📊、✅ 等），請用純文字替代。\n\n"
 
             "# Output Context\n"
             "請直接輸出修改後的 **完整** JSON（包含所有保留的舊區塊和新生成的區塊）。"
@@ -240,7 +242,8 @@ async def refine_summary(
             "title": result.get("title", original_summary.get("title")),
             "blocks": result.get("blocks", []),
             # 保留 temp_paths 以便下次繼續修改
-            "temp_paths": temp_paths
+            "temp_paths": temp_paths,
+            "is_initial_menu": False
         }
         
     except Exception as e:

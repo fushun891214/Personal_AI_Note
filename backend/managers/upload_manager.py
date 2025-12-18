@@ -58,6 +58,7 @@ class UploadManager:
                 "files": filenames,
                 "pdf_urls": pdf_urls,
                 "temp_paths": tmp_paths,
+                "is_initial_menu": result.get("is_initial_menu", False)
             }
 
         except Exception:

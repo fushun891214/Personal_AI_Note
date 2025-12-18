@@ -79,6 +79,10 @@ const renderedSummary = computed(() => {
   }
 })
 
+const isMenuOnly = computed(() => {
+  return store.currentSummary?.is_initial_menu === true
+})
+
 // Actions
 const submitRefinement = async () => {
   if (!userFeedback.value.trim()) return
@@ -255,6 +259,7 @@ const submitRefinement = async () => {
         width="90vw"
         :style="{ maxWidth: '1400px' }"
         centered
+        :maskClosable="false"
         @cancel="handleClose"
       >
     <!-- Main Content -->
@@ -311,7 +316,7 @@ const submitRefinement = async () => {
     <!-- Footer Slot -->
     <template #footer>
       <div class="footer-buttons">
-        <a-button @click="generatePDF" :loading="isGeneratingPdf">
+        <a-button @click="generatePDF" :loading="isGeneratingPdf" :disabled="isMenuOnly">
           <template #icon><FilePdfOutlined /></template>
           生成 PDF
         </a-button>
@@ -319,7 +324,7 @@ const submitRefinement = async () => {
           <template #icon><ReloadOutlined /></template>
           提交調整
         </a-button>
-        <a-button type="primary" class="save-btn" @click="saveToNotion" :loading="isSaving">
+        <a-button type="primary" class="save-btn" @click="saveToNotion" :loading="isSaving" :disabled="isMenuOnly">
           <template #icon><CloudUploadOutlined /></template>
           儲存到 Notion
         </a-button>
@@ -332,9 +337,10 @@ const submitRefinement = async () => {
 .modal-body {
   display: flex;
   gap: 16px;
-  height: 60vh;
-  min-height: 400px;
-  max-height: 60vh;
+  /* Dynamically calculate height to fit viewport: 100vh - header/footer/feedback overhead */
+  height: calc(85vh - 220px);
+  min-height: 300px;
+  /* max-height: 60vh; Removed to let calc take precedence */
   overflow: hidden;
 }
 
