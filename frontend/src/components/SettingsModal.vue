@@ -42,7 +42,7 @@ const handleClose = () => {
         
         <div class="modal-body">
           <p class="description">
-              請輸入您的 API Key。這些資訊僅會儲存在您的瀏覽器中 (LocalStorage)。
+              請輸入您的 API Key，這些資訊僅會儲存在您的瀏覽器中。
           </p>
 
           <div class="form-group">

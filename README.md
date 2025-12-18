@@ -139,6 +139,28 @@ npm run dev
 ```
 前端 UI: [http://localhost:5173](http://localhost:5173)
 
+#### 方式 C: Docker 容器部署 (生產環境推薦)
+
+將前後端與依賴打包為一個獨立映像檔，方便部署與遷移。
+
+1. **建置映像檔 (Build)**
+   ```bash
+   docker build -t personal-ai-note .
+   ```
+
+2. **啟動容器 (Run)**
+   我們將內部服務端口 (8000) 映射到主機的 **7000** 端口。
+   ```bash
+   docker run -d -p 7000:8000 --name ai-note personal-ai-note
+   ```
+
+3. **使用服務**
+   - **Web App**: [http://localhost:7000](http://localhost:7000)
+   - **Backend API**: [http://localhost:7000/docs](http://localhost:7000/docs) (或 `/api/...`)
+
+   > **注意**：在 Docker 模式下，前端與後端整合在同一個服務中，因此**無需**分別開啟兩個端口。只需要一個端口 (7000) 即可同時訪問網頁與 API。
+
+
 
 
 ## 開發者筆記
