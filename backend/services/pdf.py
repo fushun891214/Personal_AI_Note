@@ -16,8 +16,7 @@ import emoji
 
 
 def register_fonts():
-    """註冊中文字體和 Emoji 字體"""
-    # 1. 註冊中文字體
+    """註冊中文字體"""
     chinese_font = 'Helvetica'
     font_paths = [
         # Windows System Fonts
@@ -29,7 +28,7 @@ def register_fonts():
         "/System/Library/Fonts/PingFang.ttc",
         "/System/Library/Fonts/STHeiti Light.ttc",
     ]
-    
+
     for font_path in font_paths:
         if os.path.exists(font_path):
             try:
@@ -39,36 +38,18 @@ def register_fonts():
             except:
                 continue
 
-    # 2. 註冊 Emoji/Symbol 字體 (用於顯示符號)
-    # 使用 Segoe UI Emoji (Windows 10/11 預設 Emoji 字體)
-    emoji_font_path = "C:\\Windows\\Fonts\\seguiemj.ttf"
-    if not os.path.exists(emoji_font_path):
-        # 回退到 Segoe UI Symbol
-        emoji_font_path = "C:\\Windows\\Fonts\\seguisym.ttf"
-
-    if os.path.exists(emoji_font_path):
-        try:
-            pdfmetrics.registerFont(TTFont('EmojiFont', emoji_font_path))
-        except:
-            pass
-
     return chinese_font
 
 
-    return chinese_font
-
-
-def wrap_emojis(text: str) -> str:
+def remove_emojis(text: str) -> str:
     """
-    使用 emoji 套件將 Emoji 轉換為 <font name="EmojiFont"> 包裹
+    移除文字中的所有 emoji（因為 reportlab 對 emoji 字體支援不穩定）
     """
     if not text:
         return text
-        
-    def replace_func(chars, data_dict):
-        return f'<font face="EmojiFont">{chars}</font>'
-        
-    return emoji.replace_emoji(text, replace=replace_func)
+
+    # 使用 emoji 套件移除所有 emoji
+    return emoji.replace_emoji(text, replace='')
 
 
 def get_styles(font_name: str):
@@ -145,11 +126,11 @@ def notion_blocks_to_elements(blocks: List[Dict[str, Any]], styles) -> list:
         result = ''
         for t in rich_text:
             content = t.get('text', {}).get('content', '')
+            # 移除 emoji（PDF 生成對 emoji 支援不穩定）
+            content = remove_emojis(content)
+
             # 轉義 HTML 特殊字符
             content = content.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
-            
-            # 包裹 Emoji
-            content = wrap_emojis(content)
 
             annotations = t.get('annotations', {})
             if annotations.get('bold'):
@@ -164,10 +145,9 @@ def notion_blocks_to_elements(blocks: List[Dict[str, Any]], styles) -> list:
         
         if block_type == 'callout':
             callout = block.get('callout', {})
-            icon = callout.get('icon', {}).get('emoji', '💡')
-            icon_html = wrap_emojis(icon) # 處理 icon
+            # callout icon 通常是 emoji，移除它以避免 PDF 生成錯誤
             text = process_rich_text(callout.get('rich_text', []))
-            elements.append(Paragraph(f'{icon_html} {text}', styles['ChineseQuote']))
+            elements.append(Paragraph(text, styles['ChineseQuote']))
             
         elif block_type == 'heading_2':
             text = process_rich_text(block.get('heading_2', {}).get('rich_text', []))
@@ -229,9 +209,8 @@ def generate_pdf(title: str, blocks: List[Dict[str, Any]]) -> bytes:
     # 建立元素列表
     elements = []
     
-    # 標題
-    # 標題也可能包含 emoji
-    elements.append(Paragraph(wrap_emojis(title), styles['ChineseTitle']))
+    # 標題（移除 emoji 避免 PDF 生成錯誤）
+    elements.append(Paragraph(remove_emojis(title), styles['ChineseTitle']))
     elements.append(Spacer(1, 12))
     
     # 轉換 Notion Blocks
