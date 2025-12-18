@@ -1,13 +1,15 @@
-# AI Note Summary (AI 筆記摘要助手)
+ AI Note Summary (AI 論文筆記小幫手)
 
-一個基於 Google Gemini 2.5 Flash 模型的智慧筆記摘要工具。
-能夠自動解析 PDF 與 PowerPoint 投影片，生成結構化 Markdown 摘要，並自動同步到 Notion 資料庫。
+一個基於 Google Gemini 2.5 Flash 模型的智慧筆記工具。
+能夠自動解析 PDF，生成結構化 Markdown 摘要，並自動同步到 Notion 資料庫與匯出 PDF 檔案。
 
 ## 核心功能
 
-- **多格式支援**: 拖曳上傳 PDF (`.pdf`) 或 PowerPoint (`.ppt`, `.pptx`) 檔案。
-- **AI 智慧摘要**: 使用 Google Gemini 1.5 Flash 快速生成精準的結構化重點摘要。
+- **PDF 文件支援**: 拖曳上傳 PDF (`.pdf`) 檔案。
+- **AI 智慧摘要**: 使用 Google Gemini 2.5 Flash 快速生成精準的結構化重點摘要。
+- **回饋調整**: 根據用戶回饋動態調整摘要內容。
 - **Notion 同步**: 自動將生成的摘要以 Page 形式寫入指定的 Notion Database。
+- **PDF 匯出**: 支援將摘要匯出為 PDF 檔案下載。
 - **現代化介面**: 乾淨、響應式的單頁應用 (SPA) 設計。
 
 ## 系統架構
@@ -18,16 +20,31 @@
 ├── backend/                  # Python FastAPI 後端
 │   ├── main.py               # API 入口
 │   ├── config.py             # 設定檔管理
+│   ├── routers/              # API 路由層
+│   │   ├── upload.py         # 檔案上傳路由
+│   │   └── summary.py        # 摘要相關路由 (refine, save-to-notion, generate-pdf)
 │   ├── managers/             # 業務邏輯層
-│   │   └── upload_manager.py # 上傳處理
-│   └── services/             # 核心服務層
-│       ├── llm.py            # Gemini AI 整合
-│       ├── parser.py         # 檔案解析邏輯 (PDF/PPT)
-│       ├── notion.py         # Notion API 整合
-│       └── upload.py         # 檔案上傳服務
+│   │   ├── upload_manager.py # 上傳流程編排
+│   │   └── summary_manager.py # 摘要處理編排 (refine, notion, pdf)
+│   ├── services/             # 核心服務層
+│   │   ├── llm.py            # Gemini AI 整合
+│   │   ├── parser.py         # PDF 檔案解析
+│   │   ├── notion.py         # Notion API 整合
+│   │   ├── pdf.py            # PDF 生成服務
+│   │   └── upload.py         # 檔案上傳服務
+│   └── models/               # 資料模型層
+│       ├── routers/schemas.py   # API 請求/響應模型
+│       └── services/schemas.py  # 服務層資料模型
 ├── frontend/                 # Vue 3 + Vite 前端
 │   ├── src/                  # Vue 組件源碼
-│   │   ├── components/       # UI 組件 (FileUploader, FileList, SummaryResult)
+│   │   ├── components/       # UI 組件
+│   │   │   ├── FileUploader.vue  # 拖曳上傳區域
+│   │   │   ├── FileList.vue      # 已選檔案列表
+│   │   │   ├── PreviewModal.vue  # 摘要預覽、回饋、儲存
+│   │   │   └── SettingsModal.vue # API Key 設定介面
+│   │   ├── stores/           # Pinia 狀態管理
+│   │   │   ├── summary.js    # 摘要狀態
+│   │   │   └── settings.js   # 設定狀態 (API Keys)
 │   │   ├── router/           # 路由配置
 │   │   ├── views/            # 頁面組件
 │   │   ├── App.vue           # 主應用組件
@@ -166,8 +183,27 @@ npm run dev
 ## 開發者筆記
 
 ### 後端開發
+
+#### API 端點
+| 端點 | 方法 | 功能 | 請求參數 |
+|------|------|------|---------|
+| `/api/upload` | POST | 上傳 PDF 檔案，返回 AI 摘要與預覽 URL | `files`: PDF 檔案<br>`X-Gemini-API-Key` (Header, Optional) |
+| `/api/refine` | POST | 根據用戶回饋調整摘要內容 | `original_summary`: 原始摘要<br>`user_feedback`: 回饋內容<br>`X-Gemini-API-Key` (Header, Optional) |
+| `/api/save-to-notion` | POST | 確認後儲存至 Notion | `title`: 標題<br>`blocks`: Notion Blocks<br>`X-Notion-API-Key` (Header, Optional)<br>`X-Notion-Database-ID` (Header, Optional) |
+| `/api/generate-pdf` | POST | 生成 PDF 檔案下載 | `title`: 標題<br>`blocks`: Notion Blocks |
+
+**Request Flow:**
+```
+upload → extract text → summarize (Gemini) → preview modal
+    ↓
+[用戶回饋] → refine → 更新預覽
+    ↓
+[確認] → save-to-notion / generate-pdf → 完成
+```
+
+#### 其他說明
 - 若要更換 AI 模型，請修改 `.env` 中的 `GEMINI_MODEL_NAME` (預設為 `gemini-2.5-flash`)。
-- API 端點位於 `backend/main.py`，使用 FastAPI 自動生成的文檔：`/docs`
+- 使用 FastAPI 自動生成的文檔：`/docs`
 
 ### 前端開發
 - 使用 Vue 3 Composition API (`<script setup>`)
@@ -176,4 +212,6 @@ npm run dev
 
 ### 架構說明
 - **開發環境**: 前端 Vite dev server (5173) + 後端 FastAPI (8000)，透過 Vite proxy 避免 CORS
-- **生產環境**: 建議使用 Nginx 或 Docker 容器化部署，前後端獨立服務以實現最佳效能與解耦。
+- **生產環境**:
+  - **Docker 單容器模式** (預設)：FastAPI 同時提供後端 API 和前端靜態檔案 (參考 `backend/main.py` 的 SPA 服務)
+  - **分離部署模式**：使用 Nginx 或 CDN 託管前端，後端獨立部署，適合高流量場景
