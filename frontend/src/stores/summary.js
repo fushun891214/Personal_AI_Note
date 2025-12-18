@@ -19,12 +19,18 @@ export const useSummaryStore = defineStore('summary', () => {
   }
 
   const updateSummary = (newSummary) => {
-    currentSummary.value = newSummary
+    // Preserve existing fields (like temp_paths, files) by merging
+    currentSummary.value = { ...currentSummary.value, ...newSummary }
     refinementCount.value++
   }
 
   const closeModal = () => {
     isModalOpen.value = false
+    // Clear state to prevent looking up deleted files
+    pdfUrl.value = null
+    currentSummary.value = null
+    originalSummary.value = null
+    refinementCount.value = 0
   }
 
   return {

@@ -1,59 +1,59 @@
-from fastapi import FastAPI, UploadFile, File, Body
-from fastapi.responses import JSONResponse
+"""
+Personal AI Note - Backend 應用入口
+
+職責：
+1. 初始化 FastAPI 應用
+2. 掛載靜態檔案服務
+3. 註冊路由模組
+"""
+from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 import os
-from pydantic import BaseModel
-from typing import List, Dict, Any
 
-from managers import upload_manager
-from services import llm, notion
+from routers import upload, summary
 
-app = FastAPI()
+app = FastAPI(title="Personal AI Note", version="1.0.0")
 
-# Ensure uploads directory exists
+# 確保 uploads 目錄存在
 os.makedirs("uploads", exist_ok=True)
-# Mount static files for PDF preview
+
+# 掛載靜態檔案（用於 PDF 預覽）
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
-class RefineRequest(BaseModel):
-    original_summary: Dict[str, Any]
-    user_feedback: str
+# 註冊路由
+app.include_router(upload.router)
+app.include_router(summary.router)
 
-class SaveToNotionRequest(BaseModel):
-    title: str
-    blocks: List[Any]
+# ==========================================
+# Serve Frontend (SPA)
+# ==========================================
+from fastapi.responses import HTMLResponse, FileResponse
 
-@app.post("/api/upload")
-async def upload_document(files: List[UploadFile] = File(...)):
-    """
-    文件上傳 API
-    返回預覽用的 PDF URL 和初始筆記 JSON，不自動存 Notion
-    """
-    manager = upload_manager.UploadManager()
-    result = await manager.process_upload(files)
+# In Docker: /app/backend is WORKDIR
+# Frontend dist is at /app/frontend/dist (so ../frontend/dist)
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+FRONTEND_DIST = os.path.join(BASE_DIR, "frontend", "dist")
 
-    if result.get("error"):
-        return JSONResponse(status_code=400, content=result)
+if os.path.exists(FRONTEND_DIST):
+    # Mount assets (JS, CSS, Images)
+    app.mount("/assets", StaticFiles(directory=os.path.join(FRONTEND_DIST, "assets")), name="assets")
 
-    return result
+    # Catch-all route for SPA (Vue Router)
+    @app.get("/{full_path:path}")
+    async def serve_spa(full_path: str):
+        # Skip API and Uploads (handled above)
+        if full_path.startswith("api/") or full_path.startswith("uploads/"):
+             from fastapi import HTTPException
+             raise HTTPException(status_code=404)
 
-@app.post("/api/refine")
-async def refine_summary(request: RefineRequest):
-    """
-    根據用戶反饋調整筆記
-    """
-    try:
-        refined_summary = await llm.refine_summary(request.original_summary, request.user_feedback)
-        return refined_summary
-    except Exception as e:
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        # Check if requesting a static file (e.g., /folder.svg, /favicon.ico)
+        static_file = os.path.join(FRONTEND_DIST, full_path)
+        if os.path.isfile(static_file):
+            return FileResponse(static_file)
 
-@app.post("/api/save-to-notion")
-async def save_to_notion(request: SaveToNotionRequest):
-    """
-    確認後儲存到 Notion
-    """
-    result = notion.create_notion_page(request.title, request.blocks)
-    if "Error" in result:
-        return JSONResponse(status_code=500, content={"error": result})
-    return {"status": "success", "message": result}
+        # Otherwise, serve index.html for SPA routing
+        index_file = os.path.join(FRONTEND_DIST, "index.html")
+        if os.path.exists(index_file):
+            with open(index_file, "r", encoding="utf-8") as f:
+                return HTMLResponse(content=f.read())
+        return HTMLResponse(content="Frontend not found", status_code=404)

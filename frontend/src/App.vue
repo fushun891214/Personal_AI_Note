@@ -5,12 +5,6 @@
 
 <template>
   <div class="app-container">
-    <header class="app-header">
-      <div class="header-content">
-        <div class="brand">論文摘要小幫手</div>
-      </div>
-    </header>
-
     <main class="main-container">
       <RouterView />
     </main>
@@ -23,11 +17,14 @@
     box-sizing: border-box;
 }
 
-body {
+html, body {
     margin: 0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif;
-    background: #ffffff; /* Changed to white */
+    background: #ffffff;
     color: #111827;
+    overflow: auto;
+    height: auto;
+    min-height: 100%;
 }
 
 .app-container {
@@ -46,50 +43,14 @@ body {
     z-index: 10;
 }
 
-.header-content {
-    max-width: 900px; /* Aligned with main content */
-    margin: 0 auto;
-    padding: 0 24px;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.brand {
-    font-weight: 700;
-    font-size: 18px;
-    color: #4f46e5;
-    letter-spacing: -0.01em;
-}
-
-.info-btn {
-    background: transparent;
-    border: none;
-    color: #6b7280;
-    font-size: 14px;
-    cursor: pointer;
-    padding: 8px 12px;
-    border-radius: 8px;
-    width: auto;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    box-shadow: none;
-    font-weight: 500;
-}
-
-.info-btn:hover {
-    background: #f9fafb;
-    color: #374151;
-}
+/* ... existing styles ... */
 
 /* Main Content */
 .main-container {
-    max-width: 900px;
+    max-width: 100%;
     margin: 0 auto;
-    padding: 60px 24px;
+    padding: 0;
     width: 100%;
-    flex: 1;
 }
 
 button {

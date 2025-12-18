@@ -1,14 +1,24 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useSummaryStore } from '../stores/summary'
+import { useSettingsStore } from '../stores/settings'
 import { marked } from 'marked'
-import jsPDF from 'jspdf'
 import axios from 'axios'
+import { 
+  FilePdfOutlined, 
+  ReloadOutlined, 
+  CloudUploadOutlined,
+  LoadingOutlined
+} from '@ant-design/icons-vue'
+import { Modal } from 'ant-design-vue'
 
 const store = useSummaryStore()
+const settingsStore = useSettingsStore()
 const userFeedback = ref('')
 const isRefining = ref(false)
 const isSaving = ref(false)
+const isGeneratingPdf = ref(false)
+const summaryRef = ref(null)
 
 // Convert Notion Blocks to Markdown
 const notionBlocksToMarkdown = (blocks) => {
@@ -19,18 +29,16 @@ const notionBlocksToMarkdown = (blocks) => {
   const processRichText = (richText) => {
     return richText.map(t => {
       let content = t.text.content
-      // Escape markdown characters in content to avoid accidental formatting? 
-      // For now, trust content but handle bold/italic.
-      if (t.annotations?.bold) content = `**${content}**`
-      if (t.annotations?.italic) content = `*${content}*`
-      if (t.annotations?.code) content = `\`${content}\``
+      // Use HTML tags to avoid Markdown parser issues with spaces
+      if (t.annotations?.bold) content = `<strong>${content}</strong>`
+      if (t.annotations?.italic) content = `<em>${content}</em>`
+      if (t.annotations?.code) content = `<code>${content}</code>`
       return content
     }).join('')
   }
   
   blocks.forEach(block => {
     const type = block.type
-    // Add newlines to ensure markdown parses blocks correctly
     
     if (type === 'callout') {
         const icon = block.callout.icon.emoji || '💡'
@@ -41,7 +49,6 @@ const notionBlocksToMarkdown = (blocks) => {
     } else if (type === 'heading_3') {
         markdown += `### ${processRichText(block.heading_3.rich_text)}\n\n`
     } else if (type === 'bulleted_list_item') {
-        // Ensure space after *
         markdown += `- ${processRichText(block.bulleted_list_item.rich_text)}\n`
     } else if (type === 'code') {
         const lang = block.code.language
@@ -64,7 +71,6 @@ const notionBlocksToMarkdown = (blocks) => {
 
 const renderedSummary = computed(() => {
   if (!store.currentSummary || !store.currentSummary.blocks) return ''
-  // Use marked.parse if available (newer versions), or marked()
   try {
      return marked.parse(notionBlocksToMarkdown(store.currentSummary.blocks))
   } catch (e) {
@@ -76,11 +82,25 @@ const renderedSummary = computed(() => {
 const submitRefinement = async () => {
   if (!userFeedback.value.trim()) return
   
+  if (!settingsStore.hasGeminiKey()) {
+      Modal.warn({
+          title: '未設定 Gemini Key',
+          content: '請先在設定中輸入 Gemini API Key',
+          onOk: () => settingsStore.openSettingsModal(),
+          centered: true
+      })
+      return
+  }
+
   isRefining.value = true
   try {
     const response = await axios.post('/api/refine', {
-        original_summary: store.currentSummary, // Use current to iterate
+        original_summary: store.currentSummary,
         user_feedback: userFeedback.value
+    }, {
+        headers: {
+            'X-Gemini-API-Key': settingsStore.geminiApiKey
+        }
     })
     
     if (response.data.title) {
@@ -88,281 +108,300 @@ const submitRefinement = async () => {
         userFeedback.value = ''
     }
   } catch (e) {
-    alert('調整失敗: ' + e.message)
+    if (e.response && (e.response.status === 401 || e.response.status === 403)) {
+        Modal.error({ 
+            title: 'Gemini API Error', 
+            content: `額度已滿或 Key 無效 (${e.response.data.error || e.message})`,
+            centered: true,
+            okText: '去設定',
+            onOk: () => settingsStore.openSettingsModal()
+        })
+    } else {
+        Modal.error({ title: '調整失敗', content: e.message, centered: true })
+    }
   } finally {
     isRefining.value = false
   }
 }
 
-const saveToNotion = async () => {
-    isSaving.value = true
-    try {
-        const response = await axios.post('/api/save-to-notion', store.currentSummary)
-        if (response.data.status === 'success') {
-            alert('成功儲存到 Notion!')
-            store.closeModal()
-        } else {
-            throw new Error(response.data.message || 'Unknown Error')
+    const saveToNotion = async () => {
+        if (!settingsStore.hasNotionKeys()) {
+            Modal.warn({
+                title: '未設定 Notion Keys',
+                content: '匯出到 Notion 需要設定 API Key 和 Database ID',
+                okText: '去設定',
+                onOk: () => settingsStore.openSettingsModal(),
+                centered: true
+            })
+            return
         }
-    } catch (e) {
-        alert('儲存失敗: ' + e.message)
-    } finally {
-        isSaving.value = false
+
+        isSaving.value = true
+        try {
+            // Append _summary to the title for Notion
+            const payload = {
+                ...store.currentSummary,
+                title: store.currentSummary.title
+            }
+            const response = await axios.post('/api/save-to-notion', payload, {
+                headers: {
+                    'X-Notion-API-Key': settingsStore.notionApiKey,
+                    'X-Notion-Database-ID': settingsStore.notionDatabaseId
+                }
+            })
+            if (response.data.status === 'success') {
+                Modal.success({ title: '儲存成功', content: '已成功儲存到 Notion!', centered: true })
+            } else {
+                throw new Error(response.data.message || 'Unknown Error')
+            }
+        } catch (e) {
+            if (e.response && (e.response.status === 401 || e.response.status === 403)) {
+                Modal.error({ 
+                    title: 'Notion API Error', 
+                    content: `權限不足或 Key 無效 (${e.response.data.error || e.message})`,
+                    centered: true,
+                    okText: '去設定',
+                    onOk: () => settingsStore.openSettingsModal()
+                })
+            } else {
+                 Modal.error({ title: '儲存失敗', content: e.message, centered: true })
+            }
+        } finally {
+            isSaving.value = false
+        }
     }
-}
 
-const generatePDF = () => {
-    const doc = new jsPDF()
-    const text = notionBlocksToMarkdown(store.currentSummary.blocks)
-    // Remove markdown symbols for PDF readability (simple cleanup)
-    const cleanText = text.replace(/\*\*/g, '').replace(/## /g, '').replace(/> /g, '')
-    
-    const splitText = doc.splitTextToSize(cleanText, 180)
-    doc.text(splitText, 10, 10)
-    doc.save(`${store.currentSummary.title || 'summary'}.pdf`)
-}
+    const generatePDF = async () => {
+        isGeneratingPdf.value = true
+        try {
+            // 呼叫後端 API 生成 PDF
+            const response = await axios.post('/api/generate-pdf', store.currentSummary, {
+                responseType: 'blob'  // 重要：接收二進位資料
+            })
+            
+            // 建立下載連結
+            const blob = new Blob([response.data], { type: 'application/pdf' })
+            const url = window.URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            // Use title_summary.pdf format
+            const safeTitle = (store.currentSummary?.title || 'summary').replace(/[\\/:*?"<>|]/g, '_')
+            link.download = `${safeTitle}_summary.pdf`
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            window.URL.revokeObjectURL(url)
+        } catch (e) {
+            Modal.error({ title: 'PDF 生成失敗', content: e.message, centered: true })
+        } finally {
+            isGeneratingPdf.value = false
+        }
+    }
 
-</script>
+    const handleClose = async () => {
+      // 嘗試刪除後端臨時檔案
+      if (store.pdfUrl) {
+          try {
+              // Extract filename from URL (e.g., /uploads/temp/uuid.pdf -> uuid.pdf)
+              const filename = store.pdfUrl.split('/').pop()
+              if (filename) {
+                  await axios.delete(`/api/delete-temp?filename=${filename}`)
+              }
+          } catch (e) {
+              console.error('Failed to cleanup temp file:', e)
+          }
+      }
+      store.closeModal()
+    }
+    </script>
 
-<template>
-  <div v-if="store.isModalOpen" class="modal-overlay">
-    <div class="modal-container">
-      <div class="modal-header">
-        <h3>{{ store.currentSummary?.title || '論文筆記預覽' }}</h3>
-        <button class="close-btn" @click="store.closeModal">×</button>
+    <template>
+      <a-modal
+        v-model:open="store.isModalOpen"
+        title="論文瀏覽"
+        width="90vw"
+        :style="{ maxWidth: '1400px' }"
+        centered
+        @cancel="handleClose"
+      >
+    <!-- Main Content -->
+    <div class="modal-body">
+      <!-- PDF Preview (Left) -->
+      <div class="pdf-panel">
+         <embed 
+           v-if="store.pdfUrl" 
+           :src="store.pdfUrl" 
+           type="application/pdf"
+           class="pdf-embed"
+         />
+         <a-empty v-else description="無法載入 PDF" />
       </div>
       
-      <div class="modal-content">
-        <!-- PDF Preview (Left) -->
-        <div class="pdf-panel">
-           <!-- Added type and correct styling for embed -->
-           <embed 
-             v-if="store.pdfUrl" 
-             :src="store.pdfUrl" 
-             type="application/pdf"
-             class="pdf-embed"
-           />
-           <div v-else class="no-pdf">
-             <p>無法載入 PDF</p>
-             <p class="debug-url">{{ store.pdfUrl }}</p>
-           </div>
-        </div>
-        
-        <!-- Summary Preview (Right) -->
-        <div class="summary-panel markdown-body" v-html="renderedSummary"></div>
-      </div>
-      
-      <!-- Footer Controls -->
-      <div class="modal-footer">
-        <div class="refine-input">
-            <textarea 
-                v-model="userFeedback" 
-                placeholder="輸入調整需求（例如：請補充實驗細節...）"
-                :disabled="isRefining"
-            ></textarea>
-            <div class="api-notice">💡 已調整 {{ store.refinementCount }} 次</div>
-        </div>
-        
-        <div class="action-buttons">
-            <button class="btn-pdf" @click="generatePDF">📄 生成 PDF</button>
-            <button class="btn-refine" @click="submitRefinement" :disabled="isRefining">
-                {{ isRefining ? '調整中...' : '🔄 提交調整' }}
-            </button>
-            <button class="btn-save" @click="saveToNotion" :disabled="isSaving">
-                {{ isSaving ? '儲存中...' : '💾 儲存到 Notion' }}
-            </button>
-        </div>
-      </div>
+      <!-- Summary Preview (Right) -->
+      <div ref="summaryRef" class="summary-panel markdown-body" v-html="renderedSummary"></div>
     </div>
-  </div>
+
+    <!-- Feedback Input -->
+    <div class="feedback-section">
+      <a-textarea 
+          v-model:value="userFeedback" 
+          placeholder="輸入調整需求（例如：請補充實驗細節...）"
+          :disabled="isRefining"
+          :rows="2"
+          :maxLength="500"
+          showCount
+      />
+      <div class="api-notice">💡 已調整 {{ store.refinementCount }} 次</div>
+    </div>
+
+    <!-- Footer Slot -->
+    <template #footer>
+      <div class="footer-buttons">
+        <a-button @click="generatePDF" :loading="isGeneratingPdf">
+          <template #icon><FilePdfOutlined /></template>
+          生成 PDF
+        </a-button>
+        <a-button type="primary" @click="submitRefinement" :loading="isRefining">
+          <template #icon><ReloadOutlined /></template>
+          提交調整
+        </a-button>
+        <a-button type="primary" class="save-btn" @click="saveToNotion" :loading="isSaving">
+          <template #icon><CloudUploadOutlined /></template>
+          儲存到 Notion
+        </a-button>
+      </div>
+    </template>
+  </a-modal>
 </template>
 
 <style scoped>
-.modal-overlay {
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100vw;
-  height: 100vh;
-  background: white; /* Full screen, so background can be white */
-  z-index: 1000;
-}
-
-.modal-container {
-  background: white;
-  width: 100vw;
-  height: 100vh;
-  border-radius: 0;
+.modal-body {
   display: flex;
-  flex-direction: column;
+  gap: 16px;
+  height: 60vh;
+  min-height: 400px;
+  max-height: 60vh;
   overflow: hidden;
-}
-
-.modal-header {
-  padding: 0 16px; /* Remove vertical padding, set height instead */
-  height: 56px;
-  border-bottom: 1px solid #e5e7eb;
-  display: grid;
-  grid-template-columns: 40px 1fr 40px; /* Left spacer, Center title, Right button */
-  align-items: center;
-  background: #ffffff; /* White background usually looks cleaner */
-}
-
-.modal-header h3 {
-  grid-column: 2;
-  margin: 0;
-  font-size: 1.125rem; /* 18px */
-  font-weight: 600;
-  color: #111827;
-  text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.close-btn {
-  grid-column: 3;
-  justify-self: end;
-  background: transparent;
-  border: none;
-  width: 32px;
-  height: 32px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
-  color: #6b7280;
-  border-radius: 6px;
-  transition: background-color 0.2s, color 0.2s;
-  padding: 0;
-}
-
-.close-btn:hover {
-  background-color: #f3f4f6;
-  color: #111827;
-}
-
-.close-btn svg {
-   /* If we were using svg, but here text x is used */
-   font-size: 20px;
-   font-weight: 500;
-}
-
-.modal-content {
-  flex: 1;
-  display: flex;
-  overflow: hidden;
-  position: relative; /* Context */
 }
 
 .pdf-panel {
   flex: 1;
-  border-right: 1px solid #e5e7eb;
   background: #525659;
-  position: relative;
-  display: flex; /* Flex to center no-pdf message */
-  flex-direction: column;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .pdf-embed {
   width: 100%;
   height: 100%;
   border: none;
-  display: block; /* Remove inline spacing */
-}
-
-.no-pdf {
-  flex: 1;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
-  align-items: center;
-  color: white;
 }
 
 .summary-panel {
   flex: 1;
-  padding: 30px;
+  padding: 16px;
   overflow-y: auto;
+  background: #fafafa;
+  border-radius: 8px;
+  border: 1px solid #e5e7eb;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
   line-height: 1.6;
-  background: white;
+  max-height: 100%;
 }
 
-/* Footer & Controls */
-.modal-footer {
-  padding: 15px 20px;
-  border-top: 1px solid #e5e7eb;
-  background: #f9fafb;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.refine-input textarea {
-  width: 100%;
-  height: 60px;
-  padding: 10px;
-  border: 1px solid #d1d5db;
-  border-radius: 6px;
-  resize: none;
-  font-family: inherit;
-  background: #ffffff; /* Explicit white background */
-  color: #111827;      /* Explicit dark text */
+.feedback-section {
+  margin-top: 16px;
+  background: #ffffff;
+  padding: 16px;
+  border-radius: 8px;
+  position: relative;
+  z-index: 10;
 }
 
 .api-notice {
-    font-size: 0.8rem;
-    color: #6b7280;
-    margin-top: 4px;
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 4px;
 }
 
-.action-buttons {
+.footer-buttons {
   display: flex;
-  justify-content: space-between;
-  gap: 10px;
+  gap: 12px;
+  justify-content: flex-end;
 }
 
-button {
-  padding: 10px 20px;
-  border-radius: 6px;
-  font-weight: 600;
-  cursor: pointer;
-  border: none;
-  transition: opacity 0.2s;
-}
-
-button:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.btn-pdf {
-  background: #4b5563;
-  color: white;
-}
-
-.btn-refine {
-  background: #3b82f6;
-  color: white;
-  flex: 1; 
-  max-width: 300px;
-}
-
-.btn-save {
+.save-btn {
   background: #10b981;
-  color: white;
+  border-color: #10b981;
 }
 
-/* Markdown Styles (Simple subset) */
+.save-btn:hover {
+  background: #059669;
+  border-color: #059669;
+}
+
+/* Markdown Styles */
 :deep(h2) { border-bottom: 1px solid #eee; padding-bottom: 0.3em; margin-top: 1.5em; font-weight: 700; }
 :deep(h3) { margin-top: 1.2em; font-weight: 600; }
-:deep(strong) { font-weight: 700; color: #111827; } /* Ensure bold works */
+:deep(strong) { font-weight: 700; color: #111827; }
 :deep(code) { background: #f3f4f6; padding: 2px 4px; border-radius: 4px; font-family: monospace; color: #ef4444; }
 :deep(pre) { background: #1f2937; color: white; padding: 16px; border-radius: 8px; overflow-x: auto; margin: 1em 0; }
 :deep(blockquote) { border-left: 4px solid #e5e7eb; margin: 1em 0; padding-left: 1em; color: #4b5563; font-style: italic; }
 :deep(ul), :deep(ol) { padding-left: 20px; margin: 1em 0; }
 :deep(li) { margin-bottom: 0.5em; }
 :deep(details) { border: 1px solid #e5e7eb; border-radius: 6px; padding: 12px; margin: 12px 0; background: #fafafa; }
-:deep(summary) { cursor: pointer; font-weight: 600; color: #374151; }
+:deep(summary) { cursor: pointer; font-weight: 600; color: #374151; list-style: none; }
+:deep(summary::-webkit-details-marker) { display: none; }
+
+/* RWD: 小螢幕調整 */
+@media (max-width: 768px) {
+  .modal-body {
+    flex-direction: column;
+    display: flex;
+    height: 70vh;
+    max-height: 70vh;
+    overflow: hidden;
+  }
+  
+  .pdf-panel {
+    flex: 0 0 200px;
+    min-height: 200px;
+    margin-bottom: 12px;
+  }
+  
+  .summary-panel {
+    flex: 1;
+    overflow-y: auto;
+    max-height: none;
+    height: auto;
+  }
+  
+  .footer-buttons {
+    flex-wrap: nowrap;
+    gap: 8px;
+    width: 100%;
+    justify-content: space-between; 
+  }
+  
+  /* Target Ant Design buttons specifically for compactness */
+  .footer-buttons :deep(.ant-btn) {
+    font-size: 12px !important; /* Smaller font */
+    height: 32px !important;
+    padding: 0 4px !important; /* Minimal padding */
+    flex: 1;
+    min-width: 0;
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  /* Hide icons on mobile to save space */
+  .footer-buttons :deep(.ant-btn .anticon) {
+    display: none !important;
+  }
+}
 </style>
