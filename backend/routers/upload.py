@@ -41,3 +41,29 @@ async def upload_document(
         if "403" in msg or "429" in msg or "Quota" in msg or "API key" in msg or "permission" in msg.lower():
              return JSONResponse(status_code=403, content={"error": msg})
         return JSONResponse(status_code=500, content={"error": msg})
+
+
+@router.delete("/delete-temp")
+async def delete_temp_file(filename: str):
+    """
+    刪除臨時檔案 API
+    """
+    if not filename:
+        return JSONResponse(status_code=400, content={"error": "Filename is required"})
+    
+    # Security check: basic path traversal prevention
+    if ".." in filename or "/" in filename or "\\" in filename:
+         return JSONResponse(status_code=400, content={"error": "Invalid filename"})
+
+    try:
+        from services.parser import cleanup_temp_file
+        import os
+        
+        # Consistent path with parser.save_upload_to_temp
+        upload_dir = os.path.join(os.getcwd(), "uploads", "temp")
+        file_path = os.path.join(upload_dir, filename)
+        
+        cleanup_temp_file(file_path)
+        return {"status": "success", "message": f"Deleted {filename}"}
+    except Exception as e:
+        return JSONResponse(status_code=500, content={"error": str(e)})

@@ -26,6 +26,11 @@ export const useSummaryStore = defineStore('summary', () => {
 
   const closeModal = () => {
     isModalOpen.value = false
+    // Clear state to prevent looking up deleted files
+    pdfUrl.value = null
+    currentSummary.value = null
+    originalSummary.value = null
+    refinementCount.value = 0
   }
 
   return {

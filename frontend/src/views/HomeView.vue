@@ -104,7 +104,7 @@ const handleSubmit = async () => {
 
 const buttonText = computed(() => {
   if (isProcessing.value) return '處理中...'
-  return '上傳並生成'
+  return '生成筆記'
 })
 </script>
 
@@ -112,7 +112,7 @@ const buttonText = computed(() => {
   <div class="home-view">
     <header class="app-header">
       <div class="header-content">
-        <div class="brand">Paper Note AI</div>
+        <div class="brand">Paper AI Note</div>
         <!-- Right side icons -->
         <div class="header-actions">
            <button class="icon-btn" @click="settingsStore.openSettingsModal" title="設定 (Settings)">

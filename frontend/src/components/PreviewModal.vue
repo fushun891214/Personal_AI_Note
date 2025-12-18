@@ -198,7 +198,19 @@ const submitRefinement = async () => {
         }
     }
 
-    const handleClose = () => {
+    const handleClose = async () => {
+      // 嘗試刪除後端臨時檔案
+      if (store.pdfUrl) {
+          try {
+              // Extract filename from URL (e.g., /uploads/temp/uuid.pdf -> uuid.pdf)
+              const filename = store.pdfUrl.split('/').pop()
+              if (filename) {
+                  await axios.delete(`/api/delete-temp?filename=${filename}`)
+              }
+          } catch (e) {
+              console.error('Failed to cleanup temp file:', e)
+          }
+      }
       store.closeModal()
     }
     </script>
