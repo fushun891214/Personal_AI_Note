@@ -43,7 +43,7 @@ const handleDrop = (event) => {
     <input 
       type="file" 
       ref="fileInput" 
-      accept=".pdf, .ppt, .pptx, audio/*" 
+      accept=".pdf" 
       multiple 
       hidden
       @change="handleFileChange"
@@ -51,7 +51,7 @@ const handleDrop = (event) => {
     >
     <div class="icon">📁</div>
     <p>拖放檔案或點擊上傳</p>
-    <div class="hint">支援格式：.pdf .ppt .pptx .mp3 .wav .m4a .ogg</div>
+    <div class="hint">支援格式：.pdf</div>
   </div>
 </template>
 

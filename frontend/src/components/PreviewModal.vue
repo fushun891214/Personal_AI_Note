@@ -1,6 +1,7 @@
 <script setup>
 import { computed, ref } from 'vue'
 import { useSummaryStore } from '../stores/summary'
+import { useSettingsStore } from '../stores/settings'
 import { marked } from 'marked'
 import axios from 'axios'
 import { 
@@ -9,8 +10,10 @@ import {
   CloudUploadOutlined,
   LoadingOutlined
 } from '@ant-design/icons-vue'
+import { Modal } from 'ant-design-vue'
 
 const store = useSummaryStore()
+const settingsStore = useSettingsStore()
 const userFeedback = ref('')
 const isRefining = ref(false)
 const isSaving = ref(false)
@@ -26,9 +29,10 @@ const notionBlocksToMarkdown = (blocks) => {
   const processRichText = (richText) => {
     return richText.map(t => {
       let content = t.text.content
-      if (t.annotations?.bold) content = `**${content}**`
-      if (t.annotations?.italic) content = `*${content}*`
-      if (t.annotations?.code) content = `\`${content}\``
+      // Use HTML tags to avoid Markdown parser issues with spaces
+      if (t.annotations?.bold) content = `<strong>${content}</strong>`
+      if (t.annotations?.italic) content = `<em>${content}</em>`
+      if (t.annotations?.code) content = `<code>${content}</code>`
       return content
     }).join('')
   }
@@ -78,11 +82,25 @@ const renderedSummary = computed(() => {
 const submitRefinement = async () => {
   if (!userFeedback.value.trim()) return
   
+  if (!settingsStore.hasGeminiKey()) {
+      Modal.warn({
+          title: '未設定 Gemini Key',
+          content: '請先在設定中輸入 Gemini API Key',
+          onOk: () => settingsStore.openSettingsModal(),
+          centered: true
+      })
+      return
+  }
+
   isRefining.value = true
   try {
     const response = await axios.post('/api/refine', {
         original_summary: store.currentSummary,
         user_feedback: userFeedback.value
+    }, {
+        headers: {
+            'X-Gemini-API-Key': settingsStore.geminiApiKey
+        }
     })
     
     if (response.data.title) {
@@ -90,68 +108,110 @@ const submitRefinement = async () => {
         userFeedback.value = ''
     }
   } catch (e) {
-    alert('調整失敗: ' + e.message)
+    if (e.response && (e.response.status === 401 || e.response.status === 403)) {
+        Modal.error({ 
+            title: 'Gemini API Error', 
+            content: `額度已滿或 Key 無效 (${e.response.data.error || e.message})`,
+            centered: true,
+            okText: '去設定',
+            onOk: () => settingsStore.openSettingsModal()
+        })
+    } else {
+        Modal.error({ title: '調整失敗', content: e.message, centered: true })
+    }
   } finally {
     isRefining.value = false
   }
 }
 
-const saveToNotion = async () => {
-    isSaving.value = true
-    try {
-        const response = await axios.post('/api/save-to-notion', store.currentSummary)
-        if (response.data.status === 'success') {
-            alert('成功儲存到 Notion!')
-            store.closeModal()
-        } else {
-            throw new Error(response.data.message || 'Unknown Error')
+    const saveToNotion = async () => {
+        if (!settingsStore.hasNotionKeys()) {
+            Modal.warn({
+                title: '未設定 Notion Keys',
+                content: '匯出到 Notion 需要設定 API Key 和 Database ID',
+                okText: '去設定',
+                onOk: () => settingsStore.openSettingsModal(),
+                centered: true
+            })
+            return
         }
-    } catch (e) {
-        alert('儲存失敗: ' + e.message)
-    } finally {
-        isSaving.value = false
+
+        isSaving.value = true
+        try {
+            // Append _summary to the title for Notion
+            const payload = {
+                ...store.currentSummary,
+                title: store.currentSummary.title
+            }
+            const response = await axios.post('/api/save-to-notion', payload, {
+                headers: {
+                    'X-Notion-API-Key': settingsStore.notionApiKey,
+                    'X-Notion-Database-ID': settingsStore.notionDatabaseId
+                }
+            })
+            if (response.data.status === 'success') {
+                Modal.success({ title: '儲存成功', content: '已成功儲存到 Notion!', centered: true })
+            } else {
+                throw new Error(response.data.message || 'Unknown Error')
+            }
+        } catch (e) {
+            if (e.response && (e.response.status === 401 || e.response.status === 403)) {
+                Modal.error({ 
+                    title: 'Notion API Error', 
+                    content: `權限不足或 Key 無效 (${e.response.data.error || e.message})`,
+                    centered: true,
+                    okText: '去設定',
+                    onOk: () => settingsStore.openSettingsModal()
+                })
+            } else {
+                 Modal.error({ title: '儲存失敗', content: e.message, centered: true })
+            }
+        } finally {
+            isSaving.value = false
+        }
     }
-}
 
-const generatePDF = async () => {
-    isGeneratingPdf.value = true
-    try {
-        // 呼叫後端 API 生成 PDF
-        const response = await axios.post('/api/generate-pdf', store.currentSummary, {
-            responseType: 'blob'  // 重要：接收二進位資料
-        })
-        
-        // 建立下載連結
-        const blob = new Blob([response.data], { type: 'application/pdf' })
-        const url = window.URL.createObjectURL(blob)
-        const link = document.createElement('a')
-        link.href = url
-        link.download = `summary_${Date.now()}.pdf`
-        document.body.appendChild(link)
-        link.click()
-        document.body.removeChild(link)
-        window.URL.revokeObjectURL(url)
-    } catch (e) {
-        alert('PDF 生成失敗: ' + e.message)
-    } finally {
-        isGeneratingPdf.value = false
+    const generatePDF = async () => {
+        isGeneratingPdf.value = true
+        try {
+            // 呼叫後端 API 生成 PDF
+            const response = await axios.post('/api/generate-pdf', store.currentSummary, {
+                responseType: 'blob'  // 重要：接收二進位資料
+            })
+            
+            // 建立下載連結
+            const blob = new Blob([response.data], { type: 'application/pdf' })
+            const url = window.URL.createObjectURL(blob)
+            const link = document.createElement('a')
+            link.href = url
+            // Use title_summary.pdf format
+            const safeTitle = (store.currentSummary?.title || 'summary').replace(/[\\/:*?"<>|]/g, '_')
+            link.download = `${safeTitle}_summary.pdf`
+            document.body.appendChild(link)
+            link.click()
+            document.body.removeChild(link)
+            window.URL.revokeObjectURL(url)
+        } catch (e) {
+            Modal.error({ title: 'PDF 生成失敗', content: e.message, centered: true })
+        } finally {
+            isGeneratingPdf.value = false
+        }
     }
-}
 
-const handleClose = () => {
-  store.closeModal()
-}
-</script>
+    const handleClose = () => {
+      store.closeModal()
+    }
+    </script>
 
-<template>
-  <a-modal
-    v-model:open="store.isModalOpen"
-    :title="store.currentSummary?.title || '論文筆記預覽'"
-    width="90vw"
-    :style="{ maxWidth: '1400px' }"
-    centered
-    @cancel="handleClose"
-  >
+    <template>
+      <a-modal
+        v-model:open="store.isModalOpen"
+        title="論文瀏覽"
+        width="90vw"
+        :style="{ maxWidth: '1400px' }"
+        centered
+        @cancel="handleClose"
+      >
     <!-- Main Content -->
     <div class="modal-body">
       <!-- PDF Preview (Left) -->
@@ -288,28 +348,48 @@ const handleClose = () => {
 @media (max-width: 768px) {
   .modal-body {
     flex-direction: column;
-    height: auto;
-    max-height: 50vh;
+    display: flex;
+    height: 70vh;
+    max-height: 70vh;
+    overflow: hidden;
   }
   
   .pdf-panel {
+    flex: 0 0 200px;
     min-height: 200px;
-    flex: none;
+    margin-bottom: 12px;
   }
   
   .summary-panel {
-    flex: none;
-    max-height: 300px;
+    flex: 1;
+    overflow-y: auto;
+    max-height: none;
+    height: auto;
   }
   
   .footer-buttons {
-    flex-wrap: wrap;
+    flex-wrap: nowrap;
+    gap: 8px;
+    width: 100%;
+    justify-content: space-between; 
+  }
+  
+  /* Target Ant Design buttons specifically for compactness */
+  .footer-buttons :deep(.ant-btn) {
+    font-size: 12px !important; /* Smaller font */
+    height: 32px !important;
+    padding: 0 4px !important; /* Minimal padding */
+    flex: 1;
+    min-width: 0;
+    
+    display: flex;
+    align-items: center;
     justify-content: center;
   }
   
-  .footer-buttons button {
-    flex: 1;
-    min-width: 100px;
+  /* Hide icons on mobile to save space */
+  .footer-buttons :deep(.ant-btn .anticon) {
+    display: none !important;
   }
 }
 </style>

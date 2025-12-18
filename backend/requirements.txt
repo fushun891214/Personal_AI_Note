@@ -5,3 +5,4 @@ google-generativeai
 notion-client
 python-multipart
 reportlab
+emoji

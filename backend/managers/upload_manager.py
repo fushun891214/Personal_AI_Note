@@ -18,7 +18,11 @@ from services import upload, llm, parser
 class UploadManager:
     """應用層 - 協調文件上傳的完整業務流程"""
 
-    async def process_upload(self, files: List[UploadFile]) -> Dict[str, Any]:
+    async def process_upload(
+        self, 
+        files: List[UploadFile], 
+        gemini_api_key: str = None
+    ) -> Dict[str, Any]:
         """
         處理多個文件上傳的完整流程
 
@@ -35,7 +39,11 @@ class UploadManager:
             filenames = [file.filename for file in files]
 
             # 2. 生成標題和 Notion blocks
-            result = await llm.summarize_documents_from_paths(tmp_paths, filenames)
+            result = await llm.summarize_documents_from_paths(
+                tmp_paths, 
+                filenames,
+                api_key=gemini_api_key
+            )
 
             # 3. 構建 PDF URL
             pdf_urls = []
