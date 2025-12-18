@@ -27,7 +27,8 @@ const handleDrop = (event) => {
   event.preventDefault()
   if (props.disabled) return
   if (event.dataTransfer.files.length > 0) {
-    emit('files-selected', Array.from(event.dataTransfer.files))
+    // Only take the first file
+    emit('files-selected', [event.dataTransfer.files[0]])
   }
 }
 </script>
@@ -44,7 +45,6 @@ const handleDrop = (event) => {
       type="file" 
       ref="fileInput" 
       accept=".pdf" 
-      multiple 
       hidden
       @change="handleFileChange"
       :disabled="disabled"
@@ -59,7 +59,7 @@ const handleDrop = (event) => {
 .upload-box {
     border: 2px dashed #d1d5db;
     border-radius: 20px;
-    padding: 60px 40px;
+    padding: 40px 20px;
     text-align: center;
     background: #f9fafb;
     margin-bottom: 32px;

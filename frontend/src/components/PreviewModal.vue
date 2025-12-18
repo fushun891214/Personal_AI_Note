@@ -10,7 +10,8 @@ import {
   CloudUploadOutlined,
   LoadingOutlined
 } from '@ant-design/icons-vue'
-import { Modal } from 'ant-design-vue'
+import { Modal, Dropdown, Menu, MenuItem, Button } from 'ant-design-vue'
+import { DownOutlined, ThunderboltOutlined } from '@ant-design/icons-vue'
 
 const store = useSummaryStore()
 const settingsStore = useSettingsStore()
@@ -58,7 +59,7 @@ const notionBlocksToMarkdown = (blocks) => {
         markdown += `> ${processRichText(block.quote.rich_text)}\n\n`
     } else if (type === 'toggle') {
         const text = processRichText(block.toggle.rich_text)
-        markdown += `<details>\n<summary>${text}</summary>\n\n`
+        markdown += `<details open>\n<summary>${text}</summary>\n\n`
         if (block.toggle.children) {
             markdown += notionBlocksToMarkdown(block.toggle.children)
         }
@@ -198,6 +199,38 @@ const submitRefinement = async () => {
         }
     }
 
+    // Prompt Templates (Hardcoded)
+    const promptTemplates = ref([
+        {
+            label: "選項 A - 快速摘要指令",
+            value: "請閱讀這篇論文，生成一個不超過 500 字 的摘要，包含以下內容：\n1. 研究目的\n2. 研究方法\n3. 主要結果\n4. 結論\n附上 關鍵字列表。"
+        },
+        {
+            label: "選項 B - 論文結構解析指令",
+            value: "請解析這篇論文的結構，並提供以下部分的詳細說明：\n1. 摘要重點\n2. 引言：研究背景和動機\n3. 方法：核心步驟與流程\n4. 結果：重要發現\n5. 討論：主要論點與結論\n如有 數據、圖表或統計分析，請簡要說明它們的意義。"
+        },
+        {
+            label: "選項 C - 深入技術或理論解析指令",
+            value: "針對論文中提到的每個「[技術/理論名稱]」，請詳細說明：\n1. 概念定義\n2. 應用範圍\n3. 運作原理\n若有 公式或流程圖，請進行簡化說明，並提供 具體例子。"
+        },
+        {
+            label: "選項 D - 批判性分析指令",
+            value: "請進行批判性分析，內容包括：\n1. 研究設計的優點與缺點\n2. 資料分析的合理性\n3. 結果與結論是否支持研究假設\n4. 潛在的偏誤或限制\n附上 改善建議，以優化研究設計或分析方法。"
+        }
+    ])
+
+    const applyTemplate = (tpl) => {
+        userFeedback.value = tpl.value
+    }
+    
+    // Fetch prompts when modal opens
+    import { watch } from 'vue'
+    watch(() => store.isModalOpen, (newVal) => {
+        if (newVal) {
+            userFeedback.value = '' // Clear previous feedback
+        }
+    })
+
     const handleClose = async () => {
       // 嘗試刪除後端臨時檔案
       if (store.pdfUrl) {
@@ -243,15 +276,36 @@ const submitRefinement = async () => {
 
     <!-- Feedback Input -->
     <div class="feedback-section">
+      <div class="feedback-header">
+         <a-dropdown :trigger="['click']">
+            <a-button size="small">
+                分析選項
+                <DownOutlined />
+            </a-button>
+            <template #overlay>
+                <a-menu>
+                    <a-menu-item 
+                        v-for="(tpl, index) in promptTemplates" 
+                        :key="index"
+                        @click="applyTemplate(tpl)"
+                    >
+                        {{ tpl.label }}
+                    </a-menu-item>
+                </a-menu>
+            </template>
+         </a-dropdown>
+      </div>
       <a-textarea 
           v-model:value="userFeedback" 
-          placeholder="輸入調整需求（例如：請補充實驗細節...）"
+          placeholder="輸入調整需求（例如：請詳細解釋 Figure 內容）"
           :disabled="isRefining"
-          :rows="2"
-          :maxLength="500"
-          showCount
+          :rows="4"
+          :maxLength="2000"
       />
-      <div class="api-notice">💡 已調整 {{ store.refinementCount }} 次</div>
+      <div class="feedback-footer">
+        <div class="api-notice">💡 已調整 {{ store.refinementCount }} 次</div>
+        <div class="char-count">{{ userFeedback.length }} / 2000</div>
+      </div>
     </div>
 
     <!-- Footer Slot -->
@@ -313,18 +367,37 @@ const submitRefinement = async () => {
 }
 
 .feedback-section {
-  margin-top: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 0;
   background: #ffffff;
-  padding: 16px;
+  padding: 8px;
   border-radius: 8px;
   position: relative;
   z-index: 10;
 }
 
+.feedback-header {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.feedback-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
 .api-notice {
   font-size: 12px;
   color: #6b7280;
-  margin-top: 4px;
+}
+
+.char-count {
+  font-size: 12px;
+  color: #bfbfbf;
 }
 
 .footer-buttons {
@@ -361,15 +434,15 @@ const submitRefinement = async () => {
   .modal-body {
     flex-direction: column;
     display: flex;
-    height: 70vh;
-    max-height: 70vh;
+    height: 40vh;         /* Reduced to 40vh to prevent double scrollbars */
+    max-height: 40vh;
     overflow: hidden;
   }
   
   .pdf-panel {
-    flex: 0 0 200px;
-    min-height: 200px;
-    margin-bottom: 12px;
+    flex: 0 0 150px;      /* Reduced height further */
+    min-height: 150px;
+    margin-bottom: 8px;
   }
   
   .summary-panel {
@@ -377,11 +450,12 @@ const submitRefinement = async () => {
     overflow-y: auto;
     max-height: none;
     height: auto;
+    font-size: 14px;
   }
   
   .footer-buttons {
     flex-wrap: nowrap;
-    gap: 8px;
+    gap: 4px;             /* Tighter gap */
     width: 100%;
     justify-content: space-between; 
   }
@@ -398,10 +472,31 @@ const submitRefinement = async () => {
     align-items: center;
     justify-content: center;
   }
-  
+
+  /* Ensure text is centered */
+  .footer-buttons :deep(.ant-btn > span) {
+    flex: 1;
+    text-align: center;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   /* Hide icons on mobile to save space */
   .footer-buttons :deep(.ant-btn .anticon) {
     display: none !important;
+  }
+}
+
+/* RWD: 小螢幕調整 */
+@media (max-width: 768px) {
+  /* ... (other styles) ... */
+
+  /* Remove border/block above footer */
+  :deep(.ant-modal-footer) {
+    border-top: none !important;
+    padding-top: 0 !important;
+    margin-top: 0 !important;
   }
 }
 </style>
