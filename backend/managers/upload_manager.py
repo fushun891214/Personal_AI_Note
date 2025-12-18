@@ -38,8 +38,8 @@ class UploadManager:
             tmp_paths = await upload.save_files_to_temp(files)
             filenames = [file.filename for file in files]
 
-            # 2. 生成標題和 Notion blocks
-            result = await llm.summarize_documents_from_paths(
+            # 2. 生成標題和 Notion blocks (靜態選單，不調用 LLM)
+            result = await llm.get_static_options_menu(
                 tmp_paths, 
                 filenames,
                 api_key=gemini_api_key

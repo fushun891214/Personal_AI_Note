@@ -26,7 +26,9 @@ watch(() => store.isModalOpen, (newVal, oldVal) => {
 })
 
 const handleFilesSelected = (newFiles) => {
-  files.value = [...files.value, ...newFiles]
+  if (newFiles.length > 0) {
+    files.value = [newFiles[0]]
+  }
 }
 
 const handleRemoveFile = (index) => {
@@ -169,10 +171,10 @@ const buttonText = computed(() => {
 /* Header Styles */
 .app-header {
     border-bottom: 1px solid #f3f4f6;
-    padding: 20px 0;
+    padding: 12px 0;
     background: #ffffff;
     /* Removed sticky since it's now internal */
-    margin-bottom: 32px;
+    margin-bottom: 0;
 }
 
 .header-content {
