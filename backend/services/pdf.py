@@ -19,6 +19,9 @@ def register_fonts():
     """註冊中文字體"""
     chinese_font = 'Helvetica'
     font_paths = [
+        # Linux System Fonts (AR PL UMing - Docker 安裝的 TrueType 字體)
+        "/usr/share/fonts/truetype/arphic/uming.ttc",
+        "/usr/share/fonts/truetype/arphic/ukai.ttc",
         # Windows System Fonts
         "C:\\Windows\\Fonts\\msjh.ttc",  # Microsoft JhengHei
         "C:\\Windows\\Fonts\\msjh.ttf",
@@ -34,9 +37,16 @@ def register_fonts():
             try:
                 pdfmetrics.registerFont(TTFont('ChineseFont', font_path, subfontIndex=0))
                 chinese_font = 'ChineseFont'
+                print(f"✅ 成功載入字體: {font_path}")
                 break
-            except:
+            except Exception as e:
+                print(f"❌ 載入字體失敗 {font_path}: {e}")
                 continue
+        else:
+            print(f"⚠️  字體路徑不存在: {font_path}")
+
+    if chinese_font == 'Helvetica':
+        print("🚨 警告：未找到任何中文字體，將使用 Helvetica（不支援中文）")
 
     return chinese_font
 

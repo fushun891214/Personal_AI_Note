@@ -28,6 +28,12 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
+# Install Chinese fonts for PDF generation (TrueType format for reportlab)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends fonts-arphic-uming fonts-arphic-ukai && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
 # Install Python dependencies
 # requirements.txt is in backend/
 COPY backend/requirements.txt .
